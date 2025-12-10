@@ -1,6 +1,8 @@
-# oakmoss
+# oakmoss (name to be decided)
 
-Early-stage Discord bot runtime that bridges Serenity events into a single-threaded Deno/JS loop.
+> **⚠️Work in progress:** This is an early, very alpha project; expect breaking changes and rough edges while the foundations solidify. Here be dragons!
+
+A single-runtime Discord bot engine that empowers server administrators to run TypeScript on a fast, isolated runtime.
 
 ## Prerequisites
 
