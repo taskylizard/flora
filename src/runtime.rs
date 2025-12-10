@@ -23,6 +23,21 @@ struct JsRuntimeState {
     dispatch_fn: Option<Global<v8::Function>>,
 }
 
+impl Drop for JsRuntimeState {
+    fn drop(&mut self) {
+        // V8 requires the isolate to be entered before resetting persistent handles.
+        if let Some(dispatch_fn) = self.dispatch_fn.take() {
+            let isolate = self.runtime.v8_isolate();
+            let _isolate_guard = IsolateEnterGuard::new(isolate);
+            // Create a handle scope so V8 is happy when cleaning up persistent handles.
+            let scope = v8::HandleScope::new(isolate);
+            drop(dispatch_fn);
+            // Explicitly drop the scope before leaving the isolate.
+            drop(scope);
+        }
+    }
+}
+
 struct IsolateEnterGuard {
     isolate: *mut v8::OwnedIsolate,
 }
@@ -210,6 +225,7 @@ async fn load_script_source(
     source: String,
     name: String,
 ) -> Result<(), AnyError> {
+    info!(target: "oakmoss:runtime", module = module_name.as_str(), "executing module source");
     let _isolate_guard = enter_isolate(js_runtime);
     let code = match crate::transpile::transpile_if_typescript(&module_name, &source)? {
         Some(result) => result.code,
@@ -218,6 +234,7 @@ async fn load_script_source(
 
     js_runtime.execute_script(name, code)?;
     js_runtime.run_event_loop(PollEventLoopOptions::default()).await?;
+    info!(target: "oakmoss:runtime", module = module_name.as_str(), "module executed");
     Ok(())
 }
 
@@ -225,17 +242,54 @@ async fn load_guild_deployment(
     state: &mut RuntimeThreadState,
     deployment: Deployment,
 ) -> Result<(), AnyError> {
+    // Drop any existing isolate for this guild before spinning up a fresh one.
+    if let Some(old_runtime) = state.guild_runtimes.remove(&deployment.guild_id) {
+        drop(old_runtime);
+    }
+
+    info!(
+        target: "oakmoss:runtime",
+        guild_id = deployment.guild_id,
+        "creating guild runtime"
+    );
     let mut runtime = new_js_runtime(state.http.clone());
+    info!(
+        target: "oakmoss:runtime",
+        guild_id = deployment.guild_id,
+        "initializing guild runtime prelude"
+    );
     initialize_runtime(&mut runtime).await?;
+    info!(
+        target: "oakmoss:runtime",
+        guild_id = deployment.guild_id,
+        path = SDK_BUNDLE_PATH,
+        "loading sdk bundle"
+    );
     load_script_from_path(&mut runtime, PathBuf::from(SDK_BUNDLE_PATH)).await?;
 
     let module_name = ModuleName::from(deployment.language.module_name(&deployment.guild_id));
     let script_name = module_name.as_str().to_string();
+    info!(
+        target: "oakmoss:runtime",
+        guild_id = deployment.guild_id,
+        script = script_name,
+        "loading guild script source"
+    );
     load_script_source(&mut runtime.runtime, module_name, deployment.source.clone(), script_name)
         .await?;
 
     // Ensure dispatch function is refreshed after loading user script.
+    info!(
+        target: "oakmoss:runtime",
+        guild_id = deployment.guild_id,
+        "extracting dispatch function"
+    );
     runtime.dispatch_fn = Some(extract_dispatch_fn(&mut runtime.runtime)?);
+    info!(
+        target: "oakmoss:runtime",
+        guild_id = deployment.guild_id,
+        "dispatch function extracted"
+    );
     state.guild_runtimes.insert(deployment.guild_id.clone(), runtime);
     info!(
         target: "oakmoss:runtime",
