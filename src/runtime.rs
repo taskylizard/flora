@@ -1,4 +1,4 @@
-use std::{path::PathBuf, rc::Rc, sync::Arc, thread};
+use std::{collections::HashMap, path::PathBuf, rc::Rc, sync::Arc, thread};
 
 use deno_core::{
     FastString, JsRuntime, ModuleName, PollEventLoopOptions, RuntimeOptions,
@@ -12,7 +12,7 @@ use tokio::runtime::Builder;
 use tokio::sync::{mpsc, oneshot};
 use tracing::{error, info};
 
-use crate::ops;
+use crate::{deployments::Deployment, ops};
 
 pub struct BotRuntime {
     sender: mpsc::UnboundedSender<RuntimeCommand>,
@@ -31,11 +31,22 @@ enum RuntimeCommand {
         path: PathBuf,
         respond_to: oneshot::Sender<Result<(), AnyError>>,
     },
+    LoadGuildDeployment {
+        deployment: Deployment,
+        respond_to: oneshot::Sender<Result<(), AnyError>>,
+    },
     Dispatch {
         event: String,
+        guild_id: Option<String>,
         payload: Value,
         respond_to: oneshot::Sender<Result<(), AnyError>>,
     },
+}
+
+struct RuntimeThreadState {
+    default_runtime: JsRuntimeState,
+    guild_runtimes: HashMap<String, JsRuntimeState>,
+    http: Arc<Http>,
 }
 
 impl BotRuntime {
@@ -56,10 +67,24 @@ impl BotRuntime {
             .await
     }
 
-    pub async fn dispatch_js_event(&self, event: &str, payload: Value) -> Result<(), AnyError> {
+    pub async fn deploy_guild_script(&self, deployment: Deployment) -> Result<(), AnyError> {
+        self.request(|respond_to| RuntimeCommand::LoadGuildDeployment {
+            deployment: deployment.clone(),
+            respond_to,
+        })
+        .await
+    }
+
+    pub async fn dispatch_js_event(
+        &self,
+        event: &str,
+        guild_id: Option<String>,
+        payload: Value,
+    ) -> Result<(), AnyError> {
         let event = event.to_string();
         self.request(|respond_to| RuntimeCommand::Dispatch {
             event,
+            guild_id,
             payload,
             respond_to,
         })
@@ -88,43 +113,46 @@ fn runtime_thread(mut receiver: mpsc::UnboundedReceiver<RuntimeCommand>, http: A
         .expect("failed to build single-thread runtime");
 
     runtime.block_on(async move {
-        let mut js_state = JsRuntimeState {
-            runtime: JsRuntime::new(RuntimeOptions {
-                extensions: vec![ops::extension(http)],
-                extension_transpiler: Some(Rc::new(|specifier, source| {
-                    match crate::transpile::transpile_if_typescript(&specifier, source.as_str())? {
-                        Some(result) => Ok((result.code, result.source_map)),
-                        None => Ok((source, None)),
-                    }
-                })),
-                ..Default::default()
-            }),
-            dispatch_fn: None,
+        let mut state = RuntimeThreadState {
+            default_runtime: new_js_runtime(http.clone()),
+            guild_runtimes: HashMap::new(),
+            http,
         };
 
         info!("oakmoss JS runtime thread started");
         while let Some(command) = receiver.recv().await {
             match command {
                 RuntimeCommand::Initialize { respond_to } => {
-                    let result = initialize_runtime(&mut js_state).await;
+                    let result = initialize_runtime(&mut state.default_runtime).await;
                     if let Err(err) = &result {
                         error!("runtime init error: {:?}", err);
                     }
                     let _ = respond_to.send(result);
                 }
                 RuntimeCommand::LoadScript { path, respond_to } => {
-                    let result = load_script(&mut js_state.runtime, path).await;
+                    let result = load_script_from_path(&mut state.default_runtime, path).await;
                     if let Err(err) = &result {
                         error!("script load error: {:?}", err);
                     }
                     let _ = respond_to.send(result);
                 }
+                RuntimeCommand::LoadGuildDeployment {
+                    deployment,
+                    respond_to,
+                } => {
+                    let result = load_guild_deployment(&mut state, deployment).await;
+                    if let Err(err) = &result {
+                        error!("guild deployment load error: {:?}", err);
+                    }
+                    let _ = respond_to.send(result);
+                }
                 RuntimeCommand::Dispatch {
                     event,
+                    guild_id,
                     payload,
                     respond_to,
                 } => {
-                    let result = dispatch_event(&mut js_state, event, payload).await;
+                    let result = dispatch_event(&mut state, event, guild_id, payload).await;
                     if let Err(err) = &result {
                         error!("dispatch error: {:?}", err);
                     }
@@ -133,6 +161,22 @@ fn runtime_thread(mut receiver: mpsc::UnboundedReceiver<RuntimeCommand>, http: A
             };
         }
     });
+}
+
+fn new_js_runtime(http: Arc<Http>) -> JsRuntimeState {
+    JsRuntimeState {
+        runtime: JsRuntime::new(RuntimeOptions {
+            extensions: vec![ops::extension(http)],
+            extension_transpiler: Some(Rc::new(|specifier, source| {
+                match crate::transpile::transpile_if_typescript(&specifier, source.as_str())? {
+                    Some(result) => Ok((result.code, result.source_map)),
+                    None => Ok((source, None)),
+                }
+            })),
+            ..Default::default()
+        }),
+        dispatch_fn: None,
+    }
 }
 
 async fn initialize_runtime(js_state: &mut JsRuntimeState) -> Result<(), AnyError> {
@@ -148,14 +192,32 @@ async fn initialize_runtime(js_state: &mut JsRuntimeState) -> Result<(), AnyErro
     Ok(())
 }
 
-async fn load_script(js_runtime: &mut JsRuntime, path: PathBuf) -> Result<(), AnyError> {
+async fn load_script_from_path(
+    js_state: &mut JsRuntimeState,
+    path: PathBuf,
+) -> Result<(), AnyError> {
     let source = tokio::fs::read_to_string(&path).await?;
     let name = path.to_string_lossy().to_string();
-    let module_name = ModuleName::from(name.clone());
+    load_script_source(
+        &mut js_state.runtime,
+        ModuleName::from(name.clone()),
+        source,
+        name,
+    )
+    .await
+}
+
+async fn load_script_source(
+    js_runtime: &mut JsRuntime,
+    module_name: ModuleName,
+    source: String,
+    name: String,
+) -> Result<(), AnyError> {
     let code = match crate::transpile::transpile_if_typescript(&module_name, &source)? {
         Some(result) => result.code,
         None => FastString::from(source),
     };
+
     js_runtime.execute_script(name, code)?;
     js_runtime
         .run_event_loop(PollEventLoopOptions::default())
@@ -163,7 +225,66 @@ async fn load_script(js_runtime: &mut JsRuntime, path: PathBuf) -> Result<(), An
     Ok(())
 }
 
+async fn load_guild_deployment(
+    state: &mut RuntimeThreadState,
+    deployment: Deployment,
+) -> Result<(), AnyError> {
+    let mut runtime = new_js_runtime(state.http.clone());
+    initialize_runtime(&mut runtime).await?;
+    load_script_from_path(&mut runtime, PathBuf::from(SDK_BUNDLE_PATH)).await?;
+
+    let module_name = ModuleName::from(deployment.language.module_name(&deployment.guild_id));
+    let script_name = module_name.as_str().to_string();
+    load_script_source(
+        &mut runtime.runtime,
+        module_name,
+        deployment.source.clone(),
+        script_name,
+    )
+    .await?;
+
+    // Ensure dispatch function is refreshed after loading user script.
+    runtime.dispatch_fn = Some(extract_dispatch_fn(&mut runtime.runtime)?);
+    state
+        .guild_runtimes
+        .insert(deployment.guild_id.clone(), runtime);
+    info!(
+        target: "oakmoss:runtime",
+        guild_id = deployment.guild_id,
+        "loaded guild deployment into isolate"
+    );
+    Ok(())
+}
+
 async fn dispatch_event(
+    state: &mut RuntimeThreadState,
+    event: String,
+    guild_id: Option<String>,
+    payload: Value,
+) -> Result<(), AnyError> {
+    if let Some(guild_id) = guild_id {
+        if let Some(runtime) = state.guild_runtimes.get_mut(&guild_id) {
+            dispatch_into_runtime(runtime, event, payload).await
+        } else {
+            dispatch_into_runtime(&mut state.default_runtime, event, payload).await
+        }
+    } else {
+        // Broadcast ready-style events to all runtimes, including the default one.
+        let mut result =
+            dispatch_into_runtime(&mut state.default_runtime, event.clone(), payload.clone()).await;
+
+        for runtime in state.guild_runtimes.values_mut() {
+            if let Err(err) = dispatch_into_runtime(runtime, event.clone(), payload.clone()).await {
+                error!("dispatch error in guild runtime: {:?}", err);
+                result = Err(err);
+            }
+        }
+
+        result
+    }
+}
+
+async fn dispatch_into_runtime(
     js_state: &mut JsRuntimeState,
     event: String,
     payload: Value,
@@ -244,3 +365,5 @@ globalThis.console = {
   log: (...args) => core.ops.op_log(args),
 };
 "#;
+
+const SDK_BUNDLE_PATH: &str = "scripts/sdk-bundle.js";
