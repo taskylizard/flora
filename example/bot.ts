@@ -6,6 +6,9 @@ const ping = defineCommand({
   },
 });
 
+on("messageCreate", (ctx) => {
+  console.log(ctx)
+})
 createBot({
   prefix: "!",
   commands: [ping],

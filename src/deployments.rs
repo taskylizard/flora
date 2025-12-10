@@ -6,8 +6,10 @@ use fred::{prelude::*, types::ConnectHandle};
 use serde::{Deserialize, Serialize};
 use sqlx::{FromRow, Pool, Postgres};
 use tracing::{info, warn};
+use utoipa::ToSchema;
 
-#[derive(Debug, Clone, Serialize, Deserialize)]
+/// Stored representation of a guild deployment.
+#[derive(Debug, Clone, Serialize, Deserialize, ToSchema)]
 pub struct Deployment {
     pub guild_id: String,
     pub language: ScriptLanguage,
@@ -16,7 +18,8 @@ pub struct Deployment {
     pub updated_at: DateTime<Utc>,
 }
 
-#[derive(Debug, Clone, Serialize, Deserialize)]
+/// Supported scripting languages for deployments.
+#[derive(Debug, Clone, Serialize, Deserialize, ToSchema)]
 #[serde(rename_all = "lowercase")]
 pub enum ScriptLanguage {
     Javascript,

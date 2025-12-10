@@ -1,51 +1,28 @@
 mod deployments;
+mod handlers;
 mod ops;
 mod runtime;
+mod state;
 mod transpile;
 mod v8_init;
 
-use std::{net::SocketAddr, path::Path, sync::Arc};
+use std::{future::IntoFuture, net::SocketAddr, path::Path, sync::Arc};
 
-use axum::{
-    Json, Router,
-    extract::{Path as AxumPath, State},
-    http::StatusCode,
-    routing::{get, post},
-};
 use color_eyre::eyre::Result;
-use deployments::{Deployment, DeploymentService, ScriptLanguage};
+use deployments::DeploymentService;
 use eyre::eyre;
 use fred::prelude::*;
+use handlers::create_router;
 use runtime::BotRuntime;
-use serde::{Deserialize, Serialize};
-use serde_json;
+use serde::Serialize;
 use serenity::all::{
     ChannelId, Client, Context, EventHandler, GatewayIntents, GuildId, Message, MessageId,
     MessageUpdateEvent, Ready, async_trait,
 };
 use sqlx::postgres::PgPoolOptions;
+use state::AppState;
 use tokio::net::TcpListener;
 use tracing::{error, info};
-
-#[derive(Clone)]
-struct ApiState {
-    runtime: Arc<BotRuntime>,
-    deployments: DeploymentService,
-}
-
-#[derive(Deserialize)]
-struct DeploymentRequest {
-    code: String,
-    language: Option<String>,
-}
-
-#[derive(Serialize)]
-struct DeploymentResponse {
-    guild_id: String,
-    language: String,
-    created_at: String,
-    updated_at: String,
-}
 
 #[derive(Clone)]
 struct DiscordHandler {
@@ -292,68 +269,6 @@ impl From<&Ready> for ReadyPayload {
     }
 }
 
-fn router(state: ApiState) -> Router {
-    Router::new()
-        .route("/health", get(|| async { "ok" }))
-        .route("/deployments", get(list_deployments))
-        .route("/deployments/{guild_id}", post(create_or_update_deployment).get(read_deployment))
-        .with_state(state)
-}
-
-async fn create_or_update_deployment(
-    AxumPath(guild_id): AxumPath<String>,
-    State(state): State<ApiState>,
-    Json(request): Json<DeploymentRequest>,
-) -> Result<Json<DeploymentResponse>, (StatusCode, String)> {
-    let language = ScriptLanguage::from_option(request.language);
-    let deployment = state
-        .deployments
-        .upsert_deployment(guild_id.clone(), request.code, language.clone())
-        .await
-        .map_err(internal_error)?;
-
-    state.runtime.deploy_guild_script(deployment.clone()).await.map_err(internal_error)?;
-
-    Ok(Json(deployment.into()))
-}
-
-async fn read_deployment(
-    AxumPath(guild_id): AxumPath<String>,
-    State(state): State<ApiState>,
-) -> Result<Json<DeploymentResponse>, (StatusCode, String)> {
-    let deployment = state.deployments.get_deployment(&guild_id).await.map_err(internal_error)?;
-
-    match deployment {
-        Some(deployment) => Ok(Json(deployment.into())),
-        None => Err((StatusCode::NOT_FOUND, "deployment not found".to_string())),
-    }
-}
-
-fn internal_error<T: std::fmt::Display>(err: T) -> (StatusCode, String) {
-    (StatusCode::INTERNAL_SERVER_ERROR, err.to_string())
-}
-
-impl From<Deployment> for DeploymentResponse {
-    fn from(value: Deployment) -> Self {
-        Self {
-            guild_id: value.guild_id,
-            language: value.language.as_str().to_string(),
-            created_at: value.created_at.to_rfc3339(),
-            updated_at: value.updated_at.to_rfc3339(),
-        }
-    }
-}
-
-async fn list_deployments(
-    State(state): State<ApiState>,
-) -> Result<Json<Vec<DeploymentResponse>>, (StatusCode, String)> {
-    let deployments = state.deployments.list_deployments().await.map_err(internal_error)?;
-
-    let response = deployments.into_iter().map(DeploymentResponse::from).collect();
-
-    Ok(Json(response))
-}
-
 #[tokio::main]
 async fn main() -> Result<()> {
     color_eyre::install()?;
@@ -410,20 +325,18 @@ async fn main() -> Result<()> {
 
     let mut client = Client::builder(&token, intents).event_handler(handler).await?;
 
-    let api_state = ApiState { runtime: runtime.clone(), deployments: deployment_service.clone() };
+    let api_state = AppState { runtime: runtime.clone(), deployments: deployment_service.clone() };
 
-    let api_router = router(api_state);
+    let api_router = create_router(api_state);
     let listener = TcpListener::bind(api_addr).await?;
-    let api_task =
-        tokio::spawn(
-            async move { axum::serve(listener, api_router).await.map_err(|err| eyre!(err)) },
-        );
+    let api_service = api_router.into_make_service();
+    let api_task = tokio::spawn(axum::serve(listener, api_service).into_future());
 
-    let discord_task = tokio::spawn(async move { client.start().await.map_err(|err| eyre!(err)) });
+    let discord_task = tokio::spawn(async move { client.start().await });
 
     let (api_res, discord_res) = tokio::try_join!(api_task, discord_task)?;
-    api_res?;
-    discord_res?;
+    api_res.map_err(|err: std::io::Error| eyre!(err))?;
+    discord_res.map_err(|err: serenity::Error| eyre!(err))?;
 
     Ok(())
 }
