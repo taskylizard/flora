@@ -1,9 +1,10 @@
 import { rolldown } from "rolldown";
-import { writeFileSync } from "node:fs";
-import { resolve } from "node:path";
+import { mkdirSync, writeFileSync } from "node:fs";
+import { dirname, resolve } from "node:path";
 
 const entry = resolve(import.meta.dirname, "src/index.ts");
-const output = resolve(import.meta.dirname, "../scripts/sdk-bundle.js");
+const output = resolve(import.meta.dirname, "../dist/sdk-bundle.js");
+mkdirSync(dirname(output), { recursive: true });
 
 const bundle = await rolldown({
   input: entry,

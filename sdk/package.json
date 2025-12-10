@@ -4,6 +4,9 @@
   "type": "module",
   "private": true,
   "types": "./src/index.ts",
+  "scripts": {
+    "build:types": "bun x tsc -p tsconfig.types.json"
+  },
   "devDependencies": {
     "@types/bun": "latest",
     "rolldown": "^1.0.0-beta.53"

@@ -354,4 +354,4 @@ globalThis.console = {
 };
 "#;
 
-const SDK_BUNDLE_PATH: &str = "scripts/sdk-bundle.js";
+const SDK_BUNDLE_PATH: &str = "dist/sdk-bundle.js";

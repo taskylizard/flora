@@ -234,7 +234,7 @@ async fn main() -> Result<()> {
     let runtime = Arc::new(BotRuntime::new(http.clone()));
     runtime.initialize().await.map_err(|err| eyre!(err))?;
 
-    if let Err(err) = runtime.load_user_script("scripts/sdk-bundle.js").await {
+    if let Err(err) = runtime.load_user_script("dist/sdk-bundle.js").await {
         error!("Failed to load SDK bundle: {:?}", err);
     }
 
