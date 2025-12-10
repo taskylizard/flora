@@ -1,0 +1,13 @@
+{
+  "name": "sdk-types",
+  "type": "module",
+  "private": true,
+  "types": "./global.d.ts",
+  "exports": {
+    ".": "./index.d.ts",
+    "./global": "./global.d.ts"
+  },
+  "dependencies": {
+    "sdk": "workspace:*"
+  }
+}

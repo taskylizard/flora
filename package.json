@@ -3,8 +3,13 @@
   "module": "index.ts",
   "type": "module",
   "private": true,
+  "workspaces": ["sdk", "sdk-types", "example"],
+  "scripts": {
+    "typecheck": "bun x tsc --noEmit -p example/tsconfig.json"
+  },
   "devDependencies": {
-    "@types/bun": "latest"
+    "@types/bun": "latest",
+    "typescript": "^5.7.2"
   },
   "peerDependencies": {
     "typescript": "^5"
