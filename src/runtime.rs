@@ -23,6 +23,31 @@ struct JsRuntimeState {
     dispatch_fn: Option<Global<v8::Function>>,
 }
 
+struct IsolateEnterGuard {
+    isolate: *mut v8::OwnedIsolate,
+}
+
+impl IsolateEnterGuard {
+    fn new(isolate: &mut v8::OwnedIsolate) -> Self {
+        // Enter the isolate so subsequent scopes are tied to it.
+        unsafe { isolate.enter() };
+        Self { isolate }
+    }
+}
+
+impl Drop for IsolateEnterGuard {
+    fn drop(&mut self) {
+        // SAFETY: isolate lives for the guard's lifetime, we only store the raw pointer.
+        let isolate = unsafe { &mut *self.isolate };
+        unsafe { isolate.exit() };
+    }
+}
+
+fn enter_isolate(runtime: &mut JsRuntime) -> IsolateEnterGuard {
+    let isolate = runtime.v8_isolate();
+    IsolateEnterGuard::new(isolate)
+}
+
 enum RuntimeCommand {
     Initialize {
         respond_to: oneshot::Sender<Result<(), AnyError>>,
@@ -180,6 +205,7 @@ fn new_js_runtime(http: Arc<Http>) -> JsRuntimeState {
 }
 
 async fn initialize_runtime(js_state: &mut JsRuntimeState) -> Result<(), AnyError> {
+    let _isolate_guard = enter_isolate(&mut js_state.runtime);
     js_state
         .runtime
         .execute_script("oakmoss:bootstrap", RUNTIME_PRELUDE)?;
@@ -213,6 +239,7 @@ async fn load_script_source(
     source: String,
     name: String,
 ) -> Result<(), AnyError> {
+    let _isolate_guard = enter_isolate(js_runtime);
     let code = match crate::transpile::transpile_if_typescript(&module_name, &source)? {
         Some(result) => result.code,
         None => FastString::from(source),
@@ -294,9 +321,11 @@ async fn dispatch_into_runtime(
         .as_ref()
         .ok_or_else(|| AnyError::msg("dispatch function not initialized"))?;
 
-    let context = js_state.runtime.main_context();
+    let _isolate_guard = enter_isolate(&mut js_state.runtime);
     {
-        v8::scope_with_context!(scope, js_state.runtime.v8_isolate(), &context);
+        let context = js_state.runtime.main_context();
+        let isolate = js_state.runtime.v8_isolate();
+        v8::scope_with_context!(scope, isolate, &context);
         let scope = scope;
         let context = v8::Local::new(scope, &context);
         let dispatch_fn = v8::Local::new(scope, dispatch_fn);
@@ -318,7 +347,9 @@ async fn dispatch_into_runtime(
 
 fn extract_dispatch_fn(runtime: &mut JsRuntime) -> Result<Global<v8::Function>, AnyError> {
     let context = runtime.main_context();
-    v8::scope_with_context!(scope, runtime.v8_isolate(), &context);
+    let isolate = runtime.v8_isolate();
+    let _isolate_guard = IsolateEnterGuard::new(isolate);
+    v8::scope_with_context!(scope, isolate, &context);
     let scope = scope;
     let context = v8::Local::new(scope, &context);
     let global = context.global(scope);
