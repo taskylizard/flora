@@ -56,11 +56,7 @@ impl EventHandler for DiscordHandler {
         let payload = ReadyPayload::from(&ready);
         if let Err(err) = self
             .runtime
-            .dispatch_js_event(
-                "ready",
-                None,
-                serde_json::to_value(payload).unwrap_or_default(),
-            )
+            .dispatch_js_event("ready", None, serde_json::to_value(payload).unwrap_or_default())
             .await
         {
             error!("dispatch_js_event (ready) error: {:?}", err);
@@ -85,11 +81,7 @@ impl EventHandler for DiscordHandler {
         };
 
         let guild_id = msg.guild_id.map(|guild| guild.get().to_string());
-        if let Err(err) = self
-            .runtime
-            .dispatch_js_event("messageCreate", guild_id, value)
-            .await
-        {
+        if let Err(err) = self.runtime.dispatch_js_event("messageCreate", guild_id, value).await {
             error!("dispatch_js_event error: {:?}", err);
         }
     }
@@ -144,11 +136,7 @@ impl From<&Ready> for ReadyPayload {
                 discriminator: ready.user.discriminator.map(|d| d.get()),
                 bot: ready.user.bot,
             },
-            guild_ids: ready
-                .guilds
-                .iter()
-                .map(|g| g.id.get().to_string())
-                .collect(),
+            guild_ids: ready.guilds.iter().map(|g| g.id.get().to_string()).collect(),
         }
     }
 }
@@ -157,10 +145,7 @@ fn router(state: ApiState) -> Router {
     Router::new()
         .route("/health", get(|| async { "ok" }))
         .route("/deployments", get(list_deployments))
-        .route(
-            "/deployments/{guild_id}",
-            post(create_or_update_deployment).get(read_deployment),
-        )
+        .route("/deployments/{guild_id}", post(create_or_update_deployment).get(read_deployment))
         .with_state(state)
 }
 
@@ -176,11 +161,7 @@ async fn create_or_update_deployment(
         .await
         .map_err(internal_error)?;
 
-    state
-        .runtime
-        .deploy_guild_script(deployment.clone())
-        .await
-        .map_err(internal_error)?;
+    state.runtime.deploy_guild_script(deployment.clone()).await.map_err(internal_error)?;
 
     Ok(Json(deployment.into()))
 }
@@ -189,11 +170,7 @@ async fn read_deployment(
     Path(guild_id): Path<String>,
     State(state): State<ApiState>,
 ) -> Result<Json<DeploymentResponse>, (StatusCode, String)> {
-    let deployment = state
-        .deployments
-        .get_deployment(&guild_id)
-        .await
-        .map_err(internal_error)?;
+    let deployment = state.deployments.get_deployment(&guild_id).await.map_err(internal_error)?;
 
     match deployment {
         Some(deployment) => Ok(Json(deployment.into())),
@@ -219,16 +196,9 @@ impl From<Deployment> for DeploymentResponse {
 async fn list_deployments(
     State(state): State<ApiState>,
 ) -> Result<Json<Vec<DeploymentResponse>>, (StatusCode, String)> {
-    let deployments = state
-        .deployments
-        .list_deployments()
-        .await
-        .map_err(internal_error)?;
+    let deployments = state.deployments.list_deployments().await.map_err(internal_error)?;
 
-    let response = deployments
-        .into_iter()
-        .map(DeploymentResponse::from)
-        .collect();
+    let response = deployments.into_iter().map(DeploymentResponse::from).collect();
 
     Ok(Json(response))
 }
@@ -250,10 +220,7 @@ async fn main() -> Result<()> {
         .parse()
         .map_err(|_| eyre!("invalid API_ADDR"))?;
 
-    let pool = PgPoolOptions::new()
-        .max_connections(5)
-        .connect(&database_url)
-        .await?;
+    let pool = PgPoolOptions::new().max_connections(5).connect(&database_url).await?;
 
     let valkey_config = Config::from_url(&valkey_url)?;
     let valkey_client = Builder::from_config(valkey_config).build()?;
@@ -280,35 +247,24 @@ async fn main() -> Result<()> {
     let cached_deployments = deployment_service.list_deployments().await?;
     for deployment in cached_deployments {
         if let Err(err) = runtime.deploy_guild_script(deployment.clone()).await {
-            error!(
-                "Failed to load deployment for guild {}: {:?}",
-                deployment.guild_id, err
-            );
+            error!("Failed to load deployment for guild {}: {:?}", deployment.guild_id, err);
         }
     }
 
     let intents = GatewayIntents::all();
 
-    let handler = DiscordHandler {
-        runtime: runtime.clone(),
-    };
+    let handler = DiscordHandler { runtime: runtime.clone() };
 
-    let mut client = Client::builder(&token, intents)
-        .event_handler(handler)
-        .await?;
+    let mut client = Client::builder(&token, intents).event_handler(handler).await?;
 
-    let api_state = ApiState {
-        runtime: runtime.clone(),
-        deployments: deployment_service.clone(),
-    };
+    let api_state = ApiState { runtime: runtime.clone(), deployments: deployment_service.clone() };
 
     let api_router = router(api_state);
     let listener = TcpListener::bind(api_addr).await?;
-    let api_task = tokio::spawn(async move {
-        axum::serve(listener, api_router)
-            .await
-            .map_err(|err| eyre!(err))
-    });
+    let api_task =
+        tokio::spawn(
+            async move { axum::serve(listener, api_router).await.map_err(|err| eyre!(err)) },
+        );
 
     let discord_task = tokio::spawn(async move { client.start().await.map_err(|err| eyre!(err)) });
 

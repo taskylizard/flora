@@ -25,11 +25,7 @@ pub enum ScriptLanguage {
 
 impl ScriptLanguage {
     pub fn from_option(value: Option<String>) -> Self {
-        match value
-            .unwrap_or_else(|| "typescript".to_string())
-            .to_ascii_lowercase()
-            .as_str()
-        {
+        match value.unwrap_or_else(|| "typescript".to_string()).to_ascii_lowercase().as_str() {
             "js" | "javascript" => ScriptLanguage::Javascript,
             _ => ScriptLanguage::Typescript,
         }
@@ -68,11 +64,7 @@ struct DeploymentRow {
 
 impl DeploymentService {
     pub fn new(db: Pool<Postgres>, cache: Client, cache_task: ConnectHandle) -> Self {
-        Self {
-            db,
-            cache,
-            _cache_task: Arc::new(cache_task),
-        }
+        Self { db, cache, _cache_task: Arc::new(cache_task) }
     }
 
     pub async fn migrate(&self) -> Result<()> {
@@ -156,18 +148,14 @@ impl DeploymentService {
         .fetch_all(&self.db)
         .await?;
 
-        rows.into_iter()
-            .map(to_deployment)
-            .collect::<Result<Vec<_>>>()
+        rows.into_iter().map(to_deployment).collect::<Result<Vec<_>>>()
     }
 
     async fn cache_deployment(&self, deployment: &Deployment) -> Result<()> {
         let key = cache_key(&deployment.guild_id);
         let value = serde_json::to_string(deployment)?;
         // cache for 10 minutes to reduce DB traffic.
-        self.cache
-            .set::<(), _, _>(key, value, Some(Expiration::EX(600)), None, false)
-            .await?;
+        self.cache.set::<(), _, _>(key, value, Some(Expiration::EX(600)), None, false).await?;
         Ok(())
     }
 

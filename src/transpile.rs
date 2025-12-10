@@ -39,14 +39,9 @@ pub fn transpile_if_typescript(
         return Err(JsErrorBox::generic(message));
     }
 
-    let source_map = compiler
-        .source_map
-        .map(|map| map.to_json_string().into_bytes().into());
+    let source_map = compiler.source_map.map(|map| map.to_json_string().into_bytes().into());
 
-    Ok(Some(TranspileOutput {
-        code: ModuleCodeString::from(compiler.output),
-        source_map,
-    }))
+    Ok(Some(TranspileOutput { code: ModuleCodeString::from(compiler.output), source_map }))
 }
 
 fn is_typescript_specifier(specifier: &str) -> bool {
@@ -74,10 +69,7 @@ impl TsCompiler {
                 format!("{with_source:?}")
             })
             .collect::<Vec<_>>();
-        format!(
-            "Failed to transpile TypeScript for {specifier}: {}",
-            rendered.join("\n")
-        )
+        format!("Failed to transpile TypeScript for {specifier}: {}", rendered.join("\n"))
     }
 }
 

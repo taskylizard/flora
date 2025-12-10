@@ -72,11 +72,9 @@ async fn main() -> Result<()> {
     let client = Client::new();
 
     match cli.command {
-        Commands::Deploy {
-            guild,
-            file,
-            language,
-        } => deploy(&client, &cli.api_url, guild, file, language).await?,
+        Commands::Deploy { guild, file, language } => {
+            deploy(&client, &cli.api_url, guild, file, language).await?
+        }
         Commands::Get { guild } => get(&client, &cli.api_url, guild).await?,
         Commands::List => list(&client, &cli.api_url).await?,
         Commands::Health => health(&client, &cli.api_url).await?,
@@ -100,10 +98,7 @@ async fn deploy(
     };
 
     let url = format!("{api_url}/deployments/{guild}");
-    let body = DeploymentRequest {
-        code: &code,
-        language: Some(lang_str),
-    };
+    let body = DeploymentRequest { code: &code, language: Some(lang_str) };
 
     let resp = client
         .post(url)
@@ -114,10 +109,7 @@ async fn deploy(
         .json::<DeploymentResponse>()
         .await?;
 
-    println!(
-        "Deployed guild {} ({}) at {}",
-        resp.guild_id, resp.language, resp.updated_at
-    );
+    println!("Deployed guild {} ({}) at {}", resp.guild_id, resp.language, resp.updated_at);
     Ok(())
 }
 
@@ -134,13 +126,8 @@ async fn get(client: &Client, api_url: &str, guild: String) -> Result<()> {
 
 async fn list(client: &Client, api_url: &str) -> Result<()> {
     let url = format!("{api_url}/deployments");
-    let deployments = client
-        .get(url)
-        .send()
-        .await?
-        .error_for_status()?
-        .json::<Vec<DeploymentResponse>>()
-        .await?;
+    let deployments =
+        client.get(url).send().await?.error_for_status()?.json::<Vec<DeploymentResponse>>().await?;
 
     if deployments.is_empty() {
         println!("No deployments found");

@@ -41,10 +41,8 @@ pub async fn op_send_message(
         state.borrow::<Arc<Http>>().clone()
     };
 
-    let channel_id_num = args
-        .channel_id
-        .parse::<u64>()
-        .map_err(|_| JsErrorBox::generic("Invalid channel id"))?;
+    let channel_id_num =
+        args.channel_id.parse::<u64>().map_err(|_| JsErrorBox::generic("Invalid channel id"))?;
     let channel_id = ChannelId::new(channel_id_num);
     tracing::info!(
         target: "oakmoss:ops",
@@ -53,13 +51,11 @@ pub async fn op_send_message(
         args.message_id
     );
     if let Some(message_id_str) = args.message_id {
-        let message_id = message_id_str
-            .parse::<u64>()
-            .map_err(|_| JsErrorBox::generic("Invalid message id"))?;
+        let message_id =
+            message_id_str.parse::<u64>().map_err(|_| JsErrorBox::generic("Invalid message id"))?;
         let reference = MessageId::new(message_id);
-        let message = CreateMessage::new()
-            .content(args.content)
-            .reference_message((channel_id, reference));
+        let message =
+            CreateMessage::new().content(args.content).reference_message((channel_id, reference));
         channel_id
             .send_message(&http, message)
             .await

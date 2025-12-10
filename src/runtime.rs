@@ -82,14 +82,12 @@ impl BotRuntime {
     }
 
     pub async fn initialize(&self) -> Result<(), AnyError> {
-        self.request(|respond_to| RuntimeCommand::Initialize { respond_to })
-            .await
+        self.request(|respond_to| RuntimeCommand::Initialize { respond_to }).await
     }
 
     pub async fn load_user_script(&self, path: impl Into<PathBuf>) -> Result<(), AnyError> {
         let path = path.into();
-        self.request(|respond_to| RuntimeCommand::LoadScript { path, respond_to })
-            .await
+        self.request(|respond_to| RuntimeCommand::LoadScript { path, respond_to }).await
     }
 
     pub async fn deploy_guild_script(&self, deployment: Deployment) -> Result<(), AnyError> {
@@ -107,13 +105,8 @@ impl BotRuntime {
         payload: Value,
     ) -> Result<(), AnyError> {
         let event = event.to_string();
-        self.request(|respond_to| RuntimeCommand::Dispatch {
-            event,
-            guild_id,
-            payload,
-            respond_to,
-        })
-        .await
+        self.request(|respond_to| RuntimeCommand::Dispatch { event, guild_id, payload, respond_to })
+            .await
     }
 
     async fn request<F>(&self, f: F) -> Result<(), AnyError>
@@ -122,12 +115,9 @@ impl BotRuntime {
     {
         let (tx, rx) = oneshot::channel();
         let command = f(tx);
-        self.sender
-            .send(command)
-            .map_err(|_| AnyError::msg("runtime thread is unavailable"))?;
+        self.sender.send(command).map_err(|_| AnyError::msg("runtime thread is unavailable"))?;
 
-        rx.await
-            .map_err(|_| AnyError::msg("runtime thread stopped"))?
+        rx.await.map_err(|_| AnyError::msg("runtime thread stopped"))?
     }
 }
 
@@ -161,22 +151,14 @@ fn runtime_thread(mut receiver: mpsc::UnboundedReceiver<RuntimeCommand>, http: A
                     }
                     let _ = respond_to.send(result);
                 }
-                RuntimeCommand::LoadGuildDeployment {
-                    deployment,
-                    respond_to,
-                } => {
+                RuntimeCommand::LoadGuildDeployment { deployment, respond_to } => {
                     let result = load_guild_deployment(&mut state, deployment).await;
                     if let Err(err) = &result {
                         error!("guild deployment load error: {:?}", err);
                     }
                     let _ = respond_to.send(result);
                 }
-                RuntimeCommand::Dispatch {
-                    event,
-                    guild_id,
-                    payload,
-                    respond_to,
-                } => {
+                RuntimeCommand::Dispatch { event, guild_id, payload, respond_to } => {
                     let result = dispatch_event(&mut state, event, guild_id, payload).await;
                     if let Err(err) = &result {
                         error!("dispatch error: {:?}", err);
@@ -206,13 +188,8 @@ fn new_js_runtime(http: Arc<Http>) -> JsRuntimeState {
 
 async fn initialize_runtime(js_state: &mut JsRuntimeState) -> Result<(), AnyError> {
     let _isolate_guard = enter_isolate(&mut js_state.runtime);
-    js_state
-        .runtime
-        .execute_script("oakmoss:bootstrap", RUNTIME_PRELUDE)?;
-    js_state
-        .runtime
-        .run_event_loop(PollEventLoopOptions::default())
-        .await?;
+    js_state.runtime.execute_script("oakmoss:bootstrap", RUNTIME_PRELUDE)?;
+    js_state.runtime.run_event_loop(PollEventLoopOptions::default()).await?;
     js_state.dispatch_fn = Some(extract_dispatch_fn(&mut js_state.runtime)?);
     info!("oakmoss JS runtime initialized");
     Ok(())
@@ -224,13 +201,7 @@ async fn load_script_from_path(
 ) -> Result<(), AnyError> {
     let source = tokio::fs::read_to_string(&path).await?;
     let name = path.to_string_lossy().to_string();
-    load_script_source(
-        &mut js_state.runtime,
-        ModuleName::from(name.clone()),
-        source,
-        name,
-    )
-    .await
+    load_script_source(&mut js_state.runtime, ModuleName::from(name.clone()), source, name).await
 }
 
 async fn load_script_source(
@@ -246,9 +217,7 @@ async fn load_script_source(
     };
 
     js_runtime.execute_script(name, code)?;
-    js_runtime
-        .run_event_loop(PollEventLoopOptions::default())
-        .await?;
+    js_runtime.run_event_loop(PollEventLoopOptions::default()).await?;
     Ok(())
 }
 
@@ -262,19 +231,12 @@ async fn load_guild_deployment(
 
     let module_name = ModuleName::from(deployment.language.module_name(&deployment.guild_id));
     let script_name = module_name.as_str().to_string();
-    load_script_source(
-        &mut runtime.runtime,
-        module_name,
-        deployment.source.clone(),
-        script_name,
-    )
-    .await?;
+    load_script_source(&mut runtime.runtime, module_name, deployment.source.clone(), script_name)
+        .await?;
 
     // Ensure dispatch function is refreshed after loading user script.
     runtime.dispatch_fn = Some(extract_dispatch_fn(&mut runtime.runtime)?);
-    state
-        .guild_runtimes
-        .insert(deployment.guild_id.clone(), runtime);
+    state.guild_runtimes.insert(deployment.guild_id.clone(), runtime);
     info!(
         target: "oakmoss:runtime",
         guild_id = deployment.guild_id,
@@ -338,11 +300,7 @@ async fn dispatch_into_runtime(
             .ok_or_else(|| AnyError::msg("dispatch call failed"))?;
     }
 
-    js_state
-        .runtime
-        .run_event_loop(PollEventLoopOptions::default())
-        .await
-        .map_err(AnyError::from)
+    js_state.runtime.run_event_loop(PollEventLoopOptions::default()).await.map_err(AnyError::from)
 }
 
 fn extract_dispatch_fn(runtime: &mut JsRuntime) -> Result<Global<v8::Function>, AnyError> {
@@ -355,9 +313,8 @@ fn extract_dispatch_fn(runtime: &mut JsRuntime) -> Result<Global<v8::Function>, 
     let global = context.global(scope);
     let key = v8::String::new(scope, "__oakmossDispatch")
         .ok_or_else(|| AnyError::msg("failed to create dispatch name"))?;
-    let value = global
-        .get(scope, key.into())
-        .ok_or_else(|| AnyError::msg("dispatch function missing"))?;
+    let value =
+        global.get(scope, key.into()).ok_or_else(|| AnyError::msg("dispatch function missing"))?;
     let function = v8::Local::<v8::Function>::try_from(value)
         .map_err(|_| AnyError::msg("dispatch symbol is not a function"))?;
     Ok(Global::new(scope, function))
