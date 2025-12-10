@@ -3,7 +3,7 @@
   "module": "index.ts",
   "type": "module",
   "private": true,
-  "workspaces": ["sdk", "sdk-types", "example"],
+  "workspaces": ["sdk", "example"],
   "scripts": {
     "typecheck": "bun x tsc --noEmit -p example/tsconfig.json"
   },

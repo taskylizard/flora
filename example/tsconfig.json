@@ -1,7 +1,7 @@
 {
   "extends": "../tsconfig.json",
   "compilerOptions": {
-    "types": ["sdk-types/global"],
+    "types": ["sdk/global-types"],
     "noEmit": true
   },
   "include": ["./bot.ts"]

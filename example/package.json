@@ -3,7 +3,6 @@
   "type": "module",
   "private": true,
   "devDependencies": {
-    "sdk": "workspace:*",
-    "sdk-types": "workspace:*"
+    "sdk": "workspace:*"
   }
 }
