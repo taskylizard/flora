@@ -1,7 +1,7 @@
-use std::{path::PathBuf, sync::Arc, thread};
+use std::{path::PathBuf, rc::Rc, sync::Arc, thread};
 
 use deno_core::{
-    FastString, JsRuntime, PollEventLoopOptions, RuntimeOptions,
+    FastString, JsRuntime, ModuleName, PollEventLoopOptions, RuntimeOptions,
     error::AnyError,
     serde_v8,
     v8::{self, Global},
@@ -91,6 +91,12 @@ fn runtime_thread(mut receiver: mpsc::UnboundedReceiver<RuntimeCommand>, http: A
         let mut js_state = JsRuntimeState {
             runtime: JsRuntime::new(RuntimeOptions {
                 extensions: vec![ops::extension(http)],
+                extension_transpiler: Some(Rc::new(|specifier, source| {
+                    match crate::transpile::transpile_if_typescript(&specifier, source.as_str())? {
+                        Some(result) => Ok((result.code, result.source_map)),
+                        None => Ok((source, None)),
+                    }
+                })),
                 ..Default::default()
             }),
             dispatch_fn: None,
@@ -145,7 +151,12 @@ async fn initialize_runtime(js_state: &mut JsRuntimeState) -> Result<(), AnyErro
 async fn load_script(js_runtime: &mut JsRuntime, path: PathBuf) -> Result<(), AnyError> {
     let source = tokio::fs::read_to_string(&path).await?;
     let name = path.to_string_lossy().to_string();
-    js_runtime.execute_script(name, FastString::from(source))?;
+    let module_name = ModuleName::from(name.clone());
+    let code = match crate::transpile::transpile_if_typescript(&module_name, &source)? {
+        Some(result) => result.code,
+        None => FastString::from(source),
+    };
+    js_runtime.execute_script(name, code)?;
     js_runtime
         .run_event_loop(PollEventLoopOptions::default())
         .await?;

@@ -1,10 +1,12 @@
 mod ops;
 mod runtime;
+mod transpile;
 mod v8_init;
 
 use std::sync::Arc;
 
 use color_eyre::eyre::Result;
+use eyre::eyre;
 use runtime::BotRuntime;
 use serde::Serialize;
 use serde_json;
@@ -124,23 +126,18 @@ async fn main() -> Result<()> {
 
     let http = Arc::new(serenity::http::Http::new(&token));
     let runtime = Arc::new(BotRuntime::new(http.clone()));
-    runtime
-        .initialize()
-        .await
-        .map_err(|err| color_eyre::eyre::eyre!(err))?;
+    runtime.initialize().await.map_err(|err| eyre!(err))?;
 
     if let Err(err) = runtime.load_user_script("scripts/sdk-bundle.js").await {
         error!("Failed to load SDK bundle: {:?}", err);
     }
 
     // Load a default script for local development.
-    if let Err(err) = runtime.load_user_script("scripts/bot.js").await {
+    if let Err(err) = runtime.load_user_script("scripts/bot.ts").await {
         error!("Failed to load user script: {:?}", err);
     }
 
-    let intents = GatewayIntents::GUILD_MESSAGES
-        | GatewayIntents::DIRECT_MESSAGES
-        | GatewayIntents::MESSAGE_CONTENT;
+    let intents = GatewayIntents::all();
 
     let handler = DiscordHandler {
         runtime: runtime.clone(),
