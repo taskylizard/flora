@@ -18,14 +18,11 @@ edition = "2024"
 
 [dependencies]
 axum = "0.8.7"
+base64 = { version = "0.22", default-features = false, features = ["alloc"] }
 chrono = { version = "0.4", features = ["serde"] }
 color-eyre = "0.6.5"
-deno_ast = { version = "0.52.0", default-features = false, features = [
-  "transpiling"
-] }
-deno_core = { version = "0.372.0", default-features = false, features = [
-  "v8_use_custom_libcxx"
-] }
+deno_ast = { version = "0.52.0", default-features = false, features = ["transpiling"] }
+deno_core = { version = "0.372.0", default-features = false, features = ["v8_use_custom_libcxx"] }
 deno_error = "0.7.0"
 dotenvy = "0.15"
 eyre = "0.6.12"
@@ -40,25 +37,13 @@ reqwest = "0.12.25"
 serde = { version = "1", features = ["derive"] }
 serde_json = "1"
 serenity = "0.12.4"
-sqlx = { version = "0.8.6", features = [
-  "macros",
-  "postgres",
-  "runtime-tokio-rustls",
-  "uuid",
-  "chrono"
-] }
+sqlx = { version = "0.8.6", features = ["macros", "postgres", "runtime-tokio-rustls", "uuid", "chrono"] }
 thiserror = "2.0.17"
 tokio = { version = "1", features = ["full"] }
 tokio-postgres = "0.7.15"
 tokio-tungstenite = { version = "0.28.0", features = ["rustls"] }
 tower = "0.5.2"
 tracing = "0.1.43"
-tracing-subscriber = { version = "0.3.22", features = [
-  "chrono",
-  "env-filter",
-  "serde",
-  "time"
-] }
+tracing-subscriber = { version = "0.3.22", features = ["chrono", "env-filter", "serde", "time"] }
 utoipa = { version = "5.4.0", features = ["uuid", "url", "axum_extras", "debug", "auto_into_responses", "chrono", "config"] }
 utoipa-scalar = { version = "0.3.0", features = ["axum"] }
-base64 = { version = "0.22", default-features = false, features = ["alloc"] }

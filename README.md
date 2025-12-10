@@ -3,30 +3,35 @@
 Early-stage Discord bot runtime that bridges Serenity events into a single-threaded Deno/JS loop.
 
 ## Prerequisites
+
 - Rust toolchain (edition 2024)
 - Bun (for SDK bundling)
 - Optional: Postgres + Redis (dev script uses ports 5433/5434)
 
 ## Run the bot (local)
-1) Create `.env` with at least `DISCORD_TOKEN=<your token>`. Optional overrides:  
-   - `DATABASE_URL` (default: `postgres://user:pass@localhost:5433/oakmoss`)  
-   - `VALKEY_URL` (default: `redis://127.0.0.1:5434/0`)  
+
+1. Create `.env` with at least `DISCORD_TOKEN=<your token>`. Optional overrides:
+   - `DATABASE_URL` (default: `postgres://user:pass@localhost:5433/oakmoss`)
+   - `VALKEY_URL` (default: `redis://127.0.0.1:5434/0`)
    - `API_ADDR` (default: `0.0.0.0:3000`)
-2) Start supporting services (optional): `./dev.sh` (Postgres/Redis).
-3) Run: `cargo run`  
+2. Start supporting services (optional): `./dev.sh` (Postgres/Redis).
+3. Run: `cargo run`\
    Logging defaults are already set in `.envrc`: `RUST_LOG=oakmoss=debug,oakmoss::runtime=trace,serenity=info`.
    If you are not using direnv, export that before running.
 
 ## Bot scripts
+
 - The bundled SDK is loaded from `dist/sdk-bundle.js` at startup.
 - For local development, if `scripts/bot.ts` exists it will also be loaded automatically.
 - After editing the TypeScript SDK under `sdk/`, rebuild the bundle: `bun run sdk/build.ts`.
 
 ## Developing
+
 - Format/lint Rust: `cargo fmt`, `cargo clippy --all-targets -- -D warnings`.
 - Tests: `cargo test`.
 - Rebuild SDK bundle: `bun run sdk/build.ts` (run from repo root; dependencies via `bun install`).
 
 ## Deployment cache / migrations
+
 - Migrations run automatically on startup via `DeploymentService::migrate`.
 - Cached guild deployments are fetched and loaded on boot.
