@@ -391,12 +391,9 @@ globalThis.__oakmossDispatch = async function __oakmossDispatch(event, payload) 
   for (const handler of handlers) {
     const context = {
       msg: payload,
-      reply(content) {
-        return core.ops.op_send_message({
-          channel_id: payload.channel_id,
-          message_id: payload.id,
-          content: typeof content === "string" ? content : String(content),
-        });
+      reply(message) {
+        const options = normalizeReply(message, payload);
+        return core.ops.op_send_message(options);
       },
     };
     await handler(context);
@@ -406,6 +403,33 @@ globalThis.__oakmossDispatch = async function __oakmossDispatch(event, payload) 
 globalThis.console = {
   log: (...args) => core.ops.op_log(args),
 };
+
+function normalizeReply(message, payload) {
+  const base = { channel_id: payload.channel_id };
+
+  if (typeof message === "string") {
+    return { ...base, message_id: payload.id, content: message };
+  }
+
+  if (message && typeof message === "object") {
+    const normalized = { ...base, ...message };
+    const explicitReplyTo = message.replyTo ?? message.reply_to;
+
+    if (explicitReplyTo === null) {
+      delete normalized.message_id;
+    } else if (explicitReplyTo !== undefined) {
+      normalized.message_id = explicitReplyTo;
+    } else if (payload?.id) {
+      normalized.message_id = payload.id;
+    }
+
+    delete normalized.replyTo;
+    delete normalized.reply_to;
+    return normalized;
+  }
+
+  return { ...base, message_id: payload.id, content: String(message) };
+}
 "#;
 
 const SDK_BUNDLE_PATH: &str = "dist/sdk-bundle.js";

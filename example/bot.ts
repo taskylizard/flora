@@ -1,10 +1,18 @@
+
 const ping = defineCommand({
   name: "ping",
   description: "Respond with pong",
-  async run(ctx: MessageContext & { args: string[] }) {
-    let content = "Pong!\n"
-    content += `Args: ${ctx.args}\n`
-    await ctx.reply(content);
+  async run(ctx) {
+    const embed: Embed = {
+      title: "Pong"
+      , fields: [{
+        name: "Args",
+        value: ctx.args.join(",")
+      }]
+    }
+    await ctx.reply({
+      embeds: [embed]
+    });
   },
 });
 

@@ -1,6 +1,44 @@
+export type EmbedField = {
+  name: string;
+  value: string;
+  inline?: boolean;
+};
+
+export type Embed = {
+  title?: string;
+  description?: string;
+  url?: string;
+  color?: number;
+  footer?: { text: string; iconUrl?: string };
+  image?: { url: string };
+  thumbnail?: { url: string };
+  author?: { name?: string; url?: string; iconUrl?: string };
+  fields?: EmbedField[];
+};
+
+export type Attachment =
+  | { url: string; filename?: string; description?: string }
+  | { data: string; filename: string; description?: string };
+
+export type AllowedMentions = {
+  parse?: Array<"everyone" | "roles" | "users">;
+  users?: string[];
+  roles?: string[];
+  repliedUser?: boolean;
+};
+
+export type MessageReplyOptions = {
+  content?: string;
+  embeds?: Embed[];
+  attachments?: Attachment[];
+  tts?: boolean;
+  allowedMentions?: AllowedMentions;
+  replyTo?: string | null;
+};
+
 type BaseContext<TPayload> = {
   msg: TPayload;
-  reply: (content: string) => Promise<void>;
+  reply: (content: string | MessageReplyOptions) => Promise<void>;
 };
 
 export type MessageAuthor = {
