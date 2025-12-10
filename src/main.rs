@@ -4,11 +4,11 @@ mod runtime;
 mod transpile;
 mod v8_init;
 
-use std::{net::SocketAddr, sync::Arc};
+use std::{net::SocketAddr, path::Path, sync::Arc};
 
 use axum::{
     Json, Router,
-    extract::{Path, State},
+    extract::{Path as AxumPath, State},
     http::StatusCode,
     routing::{get, post},
 };
@@ -19,7 +19,10 @@ use fred::prelude::*;
 use runtime::BotRuntime;
 use serde::{Deserialize, Serialize};
 use serde_json;
-use serenity::all::{Client, Context, EventHandler, GatewayIntents, Message, Ready, async_trait};
+use serenity::all::{
+    ChannelId, Client, Context, EventHandler, GatewayIntents, GuildId, Message, MessageId,
+    MessageUpdateEvent, Ready, async_trait,
+};
 use sqlx::postgres::PgPoolOptions;
 use tokio::net::TcpListener;
 use tracing::{error, info};
@@ -85,6 +88,83 @@ impl EventHandler for DiscordHandler {
             error!("dispatch_js_event error: {:?}", err);
         }
     }
+
+    async fn message_update(
+        &self,
+        _ctx: Context,
+        old: Option<Message>,
+        new: Option<Message>,
+        event: MessageUpdateEvent,
+    ) {
+        let payload = MessageUpdatePayload::from_parts(old, new, &event);
+        let guild_id = payload.guild_id.clone();
+        let value = match serde_json::to_value(payload) {
+            Ok(value) => value,
+            Err(err) => {
+                error!("Failed to serialize message update payload: {:?}", err);
+                return;
+            }
+        };
+
+        if let Err(err) = self.runtime.dispatch_js_event("messageUpdate", guild_id, value).await {
+            error!("dispatch_js_event (messageUpdate) error: {:?}", err);
+        }
+    }
+
+    async fn message_delete(
+        &self,
+        _ctx: Context,
+        channel_id: ChannelId,
+        deleted_message_id: MessageId,
+        guild_id: Option<GuildId>,
+    ) {
+        let payload = MessageDeletePayload {
+            id: deleted_message_id.get().to_string(),
+            channel_id: channel_id.get().to_string(),
+            guild_id: guild_id.map(|g| g.get().to_string()),
+        };
+        let guild_id = payload.guild_id.clone();
+
+        let value = match serde_json::to_value(payload) {
+            Ok(value) => value,
+            Err(err) => {
+                error!("Failed to serialize message delete payload: {:?}", err);
+                return;
+            }
+        };
+
+        if let Err(err) = self.runtime.dispatch_js_event("messageDelete", guild_id, value).await {
+            error!("dispatch_js_event (messageDelete) error: {:?}", err);
+        }
+    }
+
+    async fn message_delete_bulk(
+        &self,
+        _ctx: Context,
+        channel_id: ChannelId,
+        multiple_deleted_messages_ids: Vec<MessageId>,
+        guild_id: Option<GuildId>,
+    ) {
+        let payload = MessageDeleteBulkPayload {
+            ids: multiple_deleted_messages_ids.into_iter().map(|id| id.get().to_string()).collect(),
+            channel_id: channel_id.get().to_string(),
+            guild_id: guild_id.map(|g| g.get().to_string()),
+        };
+        let guild_id = payload.guild_id.clone();
+
+        let value = match serde_json::to_value(payload) {
+            Ok(value) => value,
+            Err(err) => {
+                error!("Failed to serialize message bulk delete payload: {:?}", err);
+                return;
+            }
+        };
+
+        if let Err(err) = self.runtime.dispatch_js_event("messageDeleteBulk", guild_id, value).await
+        {
+            error!("dispatch_js_event (messageDeleteBulk) error: {:?}", err);
+        }
+    }
 }
 
 #[derive(Serialize)]
@@ -93,6 +173,17 @@ struct UserPayload {
     username: String,
     discriminator: Option<u16>,
     bot: bool,
+}
+
+impl From<&serenity::all::User> for UserPayload {
+    fn from(user: &serenity::all::User) -> Self {
+        Self {
+            id: user.id.get().to_string(),
+            username: user.name.clone(),
+            discriminator: user.discriminator.map(|d| d.get()),
+            bot: user.bot,
+        }
+    }
 }
 
 #[derive(Serialize)]
@@ -119,6 +210,66 @@ impl From<&Message> for MessagePayload {
             },
         }
     }
+}
+
+#[derive(Serialize)]
+struct MessageUpdatePayload {
+    id: String,
+    channel_id: String,
+    guild_id: Option<String>,
+    content: Option<String>,
+    author: Option<UserPayload>,
+    edited_timestamp: Option<String>,
+    old: Option<MessagePayload>,
+    new: Option<MessagePayload>,
+}
+
+impl MessageUpdatePayload {
+    fn from_parts(old: Option<Message>, new: Option<Message>, event: &MessageUpdateEvent) -> Self {
+        let guild_id = event
+            .guild_id
+            .map(|g| g.get().to_string())
+            .or_else(|| new.as_ref().and_then(|m| m.guild_id).map(|g| g.get().to_string()))
+            .or_else(|| old.as_ref().and_then(|m| m.guild_id).map(|g| g.get().to_string()));
+
+        let content = event.content.clone().or_else(|| new.as_ref().map(|m| m.content.clone()));
+
+        let author = event
+            .author
+            .as_ref()
+            .map(UserPayload::from)
+            .or_else(|| new.as_ref().map(|m| UserPayload::from(&m.author)));
+
+        let edited_timestamp =
+            event.edited_timestamp.and_then(|ts| ts.to_rfc3339()).or_else(|| {
+                new.as_ref().and_then(|m| m.edited_timestamp.and_then(|ts| ts.to_rfc3339()))
+            });
+
+        Self {
+            id: event.id.get().to_string(),
+            channel_id: event.channel_id.get().to_string(),
+            guild_id,
+            content,
+            author,
+            edited_timestamp,
+            old: old.as_ref().map(MessagePayload::from),
+            new: new.as_ref().map(MessagePayload::from),
+        }
+    }
+}
+
+#[derive(Serialize)]
+struct MessageDeletePayload {
+    id: String,
+    channel_id: String,
+    guild_id: Option<String>,
+}
+
+#[derive(Serialize)]
+struct MessageDeleteBulkPayload {
+    ids: Vec<String>,
+    channel_id: String,
+    guild_id: Option<String>,
 }
 
 #[derive(Serialize)]
@@ -150,7 +301,7 @@ fn router(state: ApiState) -> Router {
 }
 
 async fn create_or_update_deployment(
-    Path(guild_id): Path<String>,
+    AxumPath(guild_id): AxumPath<String>,
     State(state): State<ApiState>,
     Json(request): Json<DeploymentRequest>,
 ) -> Result<Json<DeploymentResponse>, (StatusCode, String)> {
@@ -167,7 +318,7 @@ async fn create_or_update_deployment(
 }
 
 async fn read_deployment(
-    Path(guild_id): Path<String>,
+    AxumPath(guild_id): AxumPath<String>,
     State(state): State<ApiState>,
 ) -> Result<Json<DeploymentResponse>, (StatusCode, String)> {
     let deployment = state.deployments.get_deployment(&guild_id).await.map_err(internal_error)?;
@@ -238,9 +389,11 @@ async fn main() -> Result<()> {
         error!("Failed to load SDK bundle: {:?}", err);
     }
 
-    // Load a default script for local development.
-    if let Err(err) = runtime.load_user_script("scripts/bot.ts").await {
-        error!("Failed to load user script: {:?}", err);
+    // Optionally load a default script for local development when present.
+    if Path::new("scripts/bot.ts").exists() {
+        if let Err(err) = runtime.load_user_script("scripts/bot.ts").await {
+            error!("Failed to load user script: {:?}", err);
+        }
     }
 
     deployment_service.migrate().await?;

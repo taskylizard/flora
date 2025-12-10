@@ -1,18 +1,53 @@
-export type MessageContext = {
-  msg: {
-    id: number;
-    channel_id: number;
-    guild_id?: number | null;
-    content: string;
-    author: {
-      id: string;
-      username: string;
-      discriminator?: number | null;
-      bot: boolean;
-    };
-  };
+type BaseContext<TPayload> = {
+  msg: TPayload;
   reply: (content: string) => Promise<void>;
 };
+
+export type MessageAuthor = {
+  id: string;
+  username: string;
+  discriminator?: number | null;
+  bot: boolean;
+};
+
+export type MessagePayload = {
+  id: string;
+  channel_id: string;
+  guild_id?: string | null;
+  content: string;
+  author: MessageAuthor;
+};
+
+export type MessageContext = BaseContext<MessagePayload>;
+
+export type MessageUpdatePayload = {
+  id: string;
+  channel_id: string;
+  guild_id?: string | null;
+  content?: string | null;
+  author?: MessageAuthor | null;
+  edited_timestamp?: string | null;
+  old?: MessagePayload | null;
+  new?: MessagePayload | null;
+};
+
+export type MessageUpdateContext = BaseContext<MessageUpdatePayload>;
+
+export type MessageDeletePayload = {
+  id: string;
+  channel_id: string;
+  guild_id?: string | null;
+};
+
+export type MessageDeleteContext = BaseContext<MessageDeletePayload>;
+
+export type MessageDeleteBulkPayload = {
+  ids: string[];
+  channel_id: string;
+  guild_id?: string | null;
+};
+
+export type MessageDeleteBulkContext = BaseContext<MessageDeleteBulkPayload>;
 
 export type Command = {
   name: string;
