@@ -393,6 +393,9 @@ globalThis.__oakmossDispatch = async function __oakmossDispatch(event, payload) 
       msg: payload,
       reply(message) {
         const options = normalizeReply(message, payload);
+        if (options.interaction_id && options.token) {
+          return core.ops.op_send_interaction_response(options);
+        }
         return core.ops.op_send_message(options);
       },
     };
@@ -405,6 +408,10 @@ globalThis.console = {
 };
 
 function normalizeReply(message, payload) {
+  if (payload?.interaction_token) {
+    return normalizeInteractionReply(message, payload);
+  }
+
   const base = { channel_id: payload.channel_id };
 
   if (typeof message === "string") {
@@ -429,6 +436,27 @@ function normalizeReply(message, payload) {
   }
 
   return { ...base, message_id: payload.id, content: String(message) };
+}
+
+function normalizeInteractionReply(message, payload) {
+  const base = {
+    interaction_id: payload.interaction_id ?? payload.id,
+    token: payload.interaction_token,
+  };
+
+  if (typeof message === "string") {
+    return { ...base, content: message };
+  }
+
+  if (message && typeof message === "object") {
+    const normalized = { ...base, ...message };
+    if (message.ephemeral !== undefined) {
+      normalized.ephemeral = message.ephemeral;
+    }
+    return normalized;
+  }
+
+  return { ...base, content: String(message) };
 }
 "#;
 

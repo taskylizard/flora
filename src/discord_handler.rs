@@ -2,8 +2,8 @@ use std::sync::Arc;
 
 use serde::Serialize;
 use serenity::all::{
-    ChannelId, Context, EventHandler, GuildId, Message, MessageId, MessageUpdateEvent, Ready, User,
-    async_trait,
+    ChannelId, CommandInteraction, Context, EventHandler, GuildId, Interaction, Message, MessageId,
+    MessageUpdateEvent, Ready, User, async_trait,
 };
 use tracing::{error, info};
 
@@ -127,6 +127,37 @@ impl EventHandler for DiscordHandler {
             error!("dispatch_js_event (messageDeleteBulk) error: {:?}", err);
         }
     }
+
+    async fn interaction_create(&self, _ctx: Context, interaction: Interaction) {
+        match interaction {
+            Interaction::Command(command) => {
+                info!(
+                    target: "oakmoss:discord",
+                    "slash command interaction guild={:?} channel={} name={}",
+                    command.guild_id,
+                    command.channel_id,
+                    command.data.name
+                );
+
+                let payload = InteractionCreatePayload::from(&command);
+                let guild_id = payload.guild_id.clone();
+                let value = match serde_json::to_value(payload) {
+                    Ok(value) => value,
+                    Err(err) => {
+                        error!("Failed to serialize interaction payload: {:?}", err);
+                        return;
+                    }
+                };
+
+                if let Err(err) =
+                    self.runtime.dispatch_js_event("interactionCreate", guild_id, value).await
+                {
+                    error!("dispatch_js_event (interactionCreate) error: {:?}", err);
+                }
+            }
+            _ => {}
+        }
+    }
 }
 
 #[derive(Serialize)]
@@ -238,6 +269,38 @@ struct MessageDeleteBulkPayload {
 struct ReadyPayload {
     user: UserPayload,
     guild_ids: Vec<String>,
+}
+
+#[derive(Serialize)]
+struct InteractionCreatePayload {
+    interaction_id: String,
+    interaction_token: String,
+    application_id: String,
+    guild_id: Option<String>,
+    channel_id: Option<String>,
+    user: UserPayload,
+    command_name: String,
+    data: serde_json::Value,
+    locale: Option<String>,
+    guild_locale: Option<String>,
+}
+
+impl From<&CommandInteraction> for InteractionCreatePayload {
+    fn from(interaction: &CommandInteraction) -> Self {
+        let data = serde_json::to_value(&interaction.data).unwrap_or_default();
+        Self {
+            interaction_id: interaction.id.get().to_string(),
+            interaction_token: interaction.token.clone(),
+            application_id: interaction.application_id.get().to_string(),
+            guild_id: interaction.guild_id.map(|g| g.get().to_string()),
+            channel_id: Some(interaction.channel_id.get().to_string()),
+            user: UserPayload::from(&interaction.user),
+            command_name: interaction.data.name.clone(),
+            data,
+            locale: Some(interaction.locale.clone()),
+            guild_locale: interaction.guild_locale.clone(),
+        }
+    }
 }
 
 impl From<&Ready> for ReadyPayload {
