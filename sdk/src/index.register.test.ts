@@ -16,9 +16,21 @@ describe('createBot slash registration', () => {
     globalThis.__oakmossGuildId = '123'
 
     createBot({
-      slashCommands: [defineSlashCommand({ name: 'ping', run: () => {} })],
+      slashCommands: [
+        defineSlashCommand({
+          name: 'ping',
+          options: [{ name: 'text', description: 'say something', required: true }],
+          run: () => {},
+        }),
+      ],
     })
 
-    expect(register).toHaveBeenCalledWith([{ name: 'ping', description: undefined }])
+    expect(register).toHaveBeenCalledWith([
+      {
+        name: 'ping',
+        description: undefined,
+        options: [{ name: 'text', description: 'say something', required: true, type: undefined }],
+      },
+    ])
   })
 })
