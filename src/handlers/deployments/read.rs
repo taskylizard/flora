@@ -6,7 +6,7 @@ use axum::{
 use tracing::error;
 
 use crate::{
-    handlers::auth::{ensure_guild_admin, require_session},
+    handlers::auth::{ensure_guild_admin, require_identity},
     handlers::{error::ApiError, response::ApiJson},
     state::AppState,
 };
@@ -32,7 +32,7 @@ pub async fn get_deployment_handler(
     State(state): State<AppState>,
     headers: HeaderMap,
 ) -> Result<ApiJson<DeploymentResponse>, ApiError> {
-    let session = require_session(&state.auth, &headers).await?;
+    let identity = require_identity(&state, &headers).await?;
 
     let deployment = state.deployments.get_deployment(&guild_id).await.map_err(|err| {
         error!(target: "oakmoss:api", guild_id, ?err, "failed to fetch deployment");
@@ -43,7 +43,7 @@ pub async fn get_deployment_handler(
         return Err(ApiError::not_found("deployment not found"));
     };
 
-    ensure_guild_admin(&state.auth, &session, &guild_id).await?;
+    ensure_guild_admin(&state, &identity, &guild_id).await?;
 
     Ok(ApiJson(Json(deployment.into())))
 }

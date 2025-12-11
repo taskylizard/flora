@@ -3,15 +3,16 @@ use std::{cell::RefCell, rc::Rc, sync::Arc};
 use deno_core::{OpState, op2};
 use deno_error::JsErrorBox;
 use serde::Deserialize;
+use serenity::all::CommandOptionType;
 use serenity::{
     all::CreateAttachment,
     builder::{
-        CreateCommand, CreateCommandOption, CreateInteractionResponse, CreateInteractionResponseMessage,
+        CreateCommand, CreateCommandOption, CreateInteractionResponse,
+        CreateInteractionResponseMessage,
     },
     http::Http,
     model::id::InteractionId,
 };
-use serenity::all::CommandOptionType;
 use tracing::info;
 
 use super::message::{

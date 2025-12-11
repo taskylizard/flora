@@ -30,6 +30,7 @@ eyre = "0.6.12"
 fred = "10.1.0"
 futures-util = "0.3"
 hmac = "0.12"
+hex = "0.4"
 openssl = { version = "0.10.75", features = ["vendored"] }
 opentelemetry = "0.31.0"
 oxc = { version = "0.101.0", features = ["full", "oxc_regular_expression", "semantic", "transformer"] }

@@ -156,8 +156,17 @@ pub async fn me_handler(
     State(state): State<AppState>,
     headers: HeaderMap,
 ) -> Result<ApiJson<AuthResponse>, ApiError> {
-    let session = require_session(&state.auth, &headers).await?;
-    Ok(ApiJson(Json(AuthResponse { user: session.user.into() })))
+    let identity = require_identity(&state, &headers).await?;
+    let user = match identity.session {
+        Some(session) => session.user,
+        None => DiscordUser {
+            id: identity.user_id,
+            username: "".to_string(),
+            global_name: None,
+            avatar: None,
+        },
+    };
+    Ok(ApiJson(Json(AuthResponse { user: user.into() })))
 }
 
 /// Load and validate the session from cookies.
@@ -172,16 +181,62 @@ pub async fn require_session(auth: &AuthService, headers: &HeaderMap) -> Result<
     session.ok_or_else(|| ApiError::unauthorized("session expired"))
 }
 
+pub struct IdentityContext {
+    pub user_id: String,
+    pub access_token: Option<String>,
+    pub session: Option<Session>,
+}
+
+/// Resolve caller identity from either a bearer token or a session cookie.
+pub async fn require_identity(
+    state: &AppState,
+    headers: &HeaderMap,
+) -> Result<IdentityContext, ApiError> {
+    if let Some(bearer) = bearer_token(headers) {
+        if let Some(token) =
+            state.tokens.validate_token(bearer).await.map_err(ApiError::internal)?
+        {
+            return Ok(IdentityContext {
+                user_id: token.user_id,
+                access_token: None,
+                session: None,
+            });
+        }
+    }
+
+    let session = require_session(&state.auth, headers).await?;
+    Ok(IdentityContext {
+        user_id: session.user.id.clone(),
+        access_token: Some(session.access_token.clone()),
+        session: Some(session),
+    })
+}
+
 /// Ensure the user is an admin or has manage-guild permissions in the target guild.
 pub async fn ensure_guild_admin(
-    auth: &AuthService,
-    session: &Session,
+    state: &AppState,
+    identity: &IdentityContext,
     guild_id: &str,
 ) -> Result<(), ApiError> {
-    let member = auth
-        .fetch_guild_member(guild_id, &session.access_token)
-        .await
-        .map_err(ApiError::internal)?;
+    // Prefer user OAuth token if available; otherwise fall back to bot http.
+    let member = if let Some(access_token) = &identity.access_token {
+        state.auth.fetch_guild_member(guild_id, access_token).await.map_err(ApiError::internal)?
+    } else {
+        // bot lookup
+        let guild_id_num: u64 =
+            guild_id.parse().map_err(|_| ApiError::bad_request("invalid guild id"))?;
+        let user_id_num: u64 =
+            identity.user_id.parse().map_err(|_| ApiError::bad_request("invalid user id"))?;
+        let member = state
+            .http
+            .get_member(guild_id_num.into(), user_id_num.into())
+            .await
+            .map_err(|err| ApiError::forbidden(format!("member fetch failed: {err}")))?
+            .permissions;
+        member.map(|p| crate::auth::CurrentUserGuildMember {
+            permissions: Some(p.bits().to_string()),
+        })
+    };
 
     let Some(member) = member else {
         return Err(ApiError::forbidden("bot not in guild or user not a member"));
@@ -206,6 +261,10 @@ fn attach_cookie(response: &mut Response, cookie: Cookie<'_>) {
     if let Ok(value) = HeaderValue::from_str(&cookie.to_string()) {
         response.headers_mut().append(SET_COOKIE, value);
     }
+}
+
+fn bearer_token(headers: &HeaderMap) -> Option<&str> {
+    headers.get(axum::http::header::AUTHORIZATION)?.to_str().ok()?.strip_prefix("Bearer ")
 }
 
 fn cookie_value(headers: &HeaderMap, name: &str) -> Option<String> {
