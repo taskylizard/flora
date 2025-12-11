@@ -5,6 +5,7 @@ declare global {
   type MessageDeleteBulkContext = import('./index').MessageDeleteBulkContext
   type InteractionContext = import('./index').InteractionContext
   type SlashCommand = import('./index').SlashCommand
+  type SlashCommandOption = import('./index').SlashCommandOption
   type Command = import('./index').Command
 
   function on(

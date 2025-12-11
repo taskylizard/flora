@@ -116,7 +116,15 @@ export function defineCommand(command: Command): Command {
 export type SlashCommand = {
   name: string
   description?: string
+  options?: SlashCommandOption[]
   run: (ctx: InteractionContext) => Promise<void> | void
+}
+
+export type SlashCommandOption = {
+  name: string
+  description: string
+  type?: 'string' | 'integer' | 'number' | 'boolean'
+  required?: boolean
 }
 
 export function defineSlashCommand(command: SlashCommand): SlashCommand {
@@ -161,7 +169,11 @@ export function createBot(options: CreateOptions) {
   if (slashCommands.length && typeof registerSlashCommands === 'function') {
     // Fire and forget; runtime op will register for this guild isolate only.
     registerSlashCommands(
-      slashCommands.map((cmd) => ({ name: cmd.name, description: cmd.description }))
+      slashCommands.map((cmd) => ({
+        name: cmd.name,
+        description: cmd.description,
+        options: cmd.options,
+      }))
     )
   }
 }
