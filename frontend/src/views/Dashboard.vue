@@ -1,11 +1,13 @@
 <script setup lang="ts">
-import { computed, onMounted, ref } from 'vue'
+import { computed, onMounted, ref, watch } from 'vue'
 import {
   AlertCircleIcon,
   CheckIcon,
   CopyIcon,
   Loader2Icon,
   PlusIcon,
+  MoonIcon,
+  SunIcon,
   ShieldAlertIcon,
   Trash2Icon,
   UploadCloudIcon,
@@ -35,6 +37,8 @@ const deployments = ref<Deployment[]>([])
 const tokens = ref<Token[]>([])
 const creatingToken = ref(false)
 const newTokenLabel = ref('')
+const isDark = ref(false)
+const THEME_KEY = 'oakmoss_theme'
 
 const guildMap = computed(() => {
   const map = new Map<string, Guild>()
@@ -127,6 +131,25 @@ const formatDate = (value?: string | null) => {
   return format(d, 'PPP p')
 }
 
+const applyTheme = () => {
+  document.documentElement.classList.toggle('dark', isDark.value)
+}
+
+onMounted(() => {
+  const saved = localStorage.getItem(THEME_KEY)
+  if (saved === 'dark' || saved === 'light') {
+    isDark.value = saved === 'dark'
+  } else {
+    isDark.value = window.matchMedia?.('(prefers-color-scheme: dark)').matches ?? false
+  }
+  applyTheme()
+})
+
+watch(isDark, (val) => {
+  localStorage.setItem(THEME_KEY, val ? 'dark' : 'light')
+  applyTheme()
+})
+
 onMounted(loadAll)
 </script>
 
@@ -158,8 +181,19 @@ onMounted(loadAll)
               <p class="text-xs text-muted-foreground truncate max-w-[12rem] sm:max-w-[16rem]">{{ me.id }}</p>
             </div>
           </div>
-          <div class="flex items-center gap-3">
+          <div class="flex items-center gap-2 sm:gap-3">
             <Separator orientation="vertical" class="hidden h-6 sm:block" />
+            <Button
+              variant="ghost"
+              size="icon-sm"
+              class="border border-border"
+              :aria-pressed="isDark"
+              aria-label="Toggle theme"
+              @click="isDark = !isDark"
+            >
+              <SunIcon v-if="!isDark" class="h-4 w-4" />
+              <MoonIcon v-else class="h-4 w-4" />
+            </Button>
             <Button variant="outline" size="sm" class="w-full sm:w-auto" @click="goToLogin">
               Re-auth
             </Button>
