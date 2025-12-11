@@ -43,14 +43,14 @@ const guildMap = computed(() => {
 })
 
 const goToLogin = () => {
-  window.location.assign('/api/auth/auth/login')
+  window.location.assign('/api/auth/login')
 }
 
 const loadAll = async () => {
   loading.value = true
   try {
     const [{ data: user, error: meErr, response: meRes }] = await Promise.all([
-      client.GET('/auth/auth/me'),
+      client.GET('/auth/me' as any),
     ])
     if (meRes && meRes.status === 401) {
       goToLogin()
@@ -60,9 +60,9 @@ const loadAll = async () => {
     me.value = user?.user ?? null
 
     const [guildRes, deployRes, tokenRes] = await Promise.all([
-      client.GET('/guilds/guilds'),
-      client.GET('/deployments/deployments'),
-      client.GET('/tokens/tokens'),
+      client.GET('/guilds/guilds' as any),
+      client.GET('/deployments/deployments' as any),
+      client.GET('/tokens/tokens' as any),
     ])
 
     if (guildRes.data) guilds.value = guildRes.data
@@ -80,7 +80,7 @@ const loadAll = async () => {
 const createToken = async () => {
   try {
     creatingToken.value = true
-    const { data, error } = await client.POST('/tokens/tokens', {
+    const { data, error } = await client.POST('/tokens/tokens' as any, {
       body: { label: newTokenLabel.value || null },
     })
     if (error) throw error
@@ -103,7 +103,7 @@ const createToken = async () => {
 
 const deleteToken = async (tokenId: string) => {
   try {
-    const { error } = await client.DELETE('/tokens/tokens/{token_id}', {
+    const { error } = await client.DELETE('/tokens/tokens/{token_id}' as any, {
       params: { path: { token_id: tokenId } },
     })
     if (error) throw error
@@ -116,7 +116,7 @@ const deleteToken = async (tokenId: string) => {
 }
 
 const refreshTokens = async () => {
-  const res = await client.GET('/tokens/tokens')
+  const res = await client.GET('/tokens/tokens' as any)
   if (res.data) tokens.value = res.data
 }
 

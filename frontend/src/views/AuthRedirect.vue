@@ -4,7 +4,7 @@ import { Loader2Icon } from 'lucide-vue-next'
 
 import { Button } from '@/components/ui/button'
 
-const loginPath = '/api/auth/auth/login'
+const loginPath = '/api/auth/login'
 
 const goToAuth = () => {
   window.location.assign(loginPath)
