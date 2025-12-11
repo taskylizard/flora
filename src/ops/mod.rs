@@ -7,7 +7,12 @@ mod message;
 
 deno_core::extension!(
     oakmoss_ops,
-    ops = [message::op_log, message::op_send_message, interaction::op_send_interaction_response],
+    ops = [
+        message::op_log,
+        message::op_send_message,
+        interaction::op_send_interaction_response,
+        interaction::op_upsert_guild_commands,
+    ],
     options = { http: Arc<Http> },
     state = |state, options| {
         state.put(options.http.clone());

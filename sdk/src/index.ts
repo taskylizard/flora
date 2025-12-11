@@ -157,4 +157,11 @@ export function createBot(options: CreateOptions) {
 
     await command.run(ctx)
   })
+
+  if (slashCommands.length && typeof registerSlashCommands === 'function') {
+    // Fire and forget; runtime op will register for this guild isolate only.
+    registerSlashCommands(
+      slashCommands.map((cmd) => ({ name: cmd.name, description: cmd.description }))
+    )
+  }
 }
