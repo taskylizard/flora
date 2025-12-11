@@ -5,7 +5,6 @@ use serenity::all::{
     ApplicationId, ChannelId, CommandInteraction, Context, EventHandler, GuildId, Interaction,
     Message, MessageId, MessageUpdateEvent, Ready, User, async_trait,
 };
-use serenity::builder::CreateCommand;
 use tracing::{error, info};
 
 use crate::runtime::BotRuntime;
@@ -320,11 +319,10 @@ impl From<&CommandInteraction> for InteractionCreatePayload {
 }
 
 impl DiscordHandler {
-    async fn register_guild_commands(&self, guild_id: GuildId) -> serenity::Result<()> {
-        // Minimal built-in commands; extendable later.
-        let commands = vec![CreateCommand::new("ping").description("Check if the bot is alive")];
-
-        self.http.create_guild_commands(guild_id, &commands).await.map(|_| ())
+    async fn register_guild_commands(&self, _guild_id: GuildId) -> serenity::Result<()> {
+        // TODO: register user-provided slash commands once surfaced from the JS runtime or
+        // deployment metadata. For now, do nothing to avoid polluting guild command space.
+        Ok(())
     }
 }
 
