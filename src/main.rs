@@ -50,6 +50,11 @@ async fn main() -> Result<()> {
     v8_init::init();
 
     let http = Arc::new(serenity::http::Http::new(&token));
+
+    // Set application id early so guild command registration works before the READY event fires.
+    let app_info = http.get_current_application_info().await?;
+    http.set_application_id(app_info.id);
+
     let runtime = Arc::new(BotRuntime::new(http.clone()));
     runtime.initialize().await.map_err(|err| eyre!(err))?;
 
@@ -77,7 +82,7 @@ async fn main() -> Result<()> {
     let handler = DiscordHandler {
         runtime: runtime.clone(),
         http: http.clone(),
-        application_id: Arc::new(std::sync::RwLock::new(None)),
+        application_id: Arc::new(std::sync::RwLock::new(Some(app_info.id))),
     };
 
     let mut client = Client::builder(&token, intents).event_handler(handler).await?;

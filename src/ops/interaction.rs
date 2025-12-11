@@ -9,6 +9,7 @@ use serenity::{
     http::Http,
     model::id::InteractionId,
 };
+use tracing::info;
 
 use super::message::{
     AllowedMentionsInput, AttachmentInput, EmbedInput, build_allowed_mentions, build_attachment,
@@ -82,13 +83,12 @@ pub async fn op_upsert_guild_commands(
         state.borrow::<Arc<Http>>().clone()
     };
 
-    let guild_id = args
-        .guild_id
-        .parse::<u64>()
-        .map_err(|_| JsErrorBox::generic("Invalid guild id"))?;
+    let guild_id =
+        args.guild_id.parse::<u64>().map_err(|_| JsErrorBox::generic("Invalid guild id"))?;
 
-    let commands: Vec<CreateCommand> = args
-        .commands
+    let command_defs = args.commands;
+    let names: Vec<String> = command_defs.iter().map(|c| c.name.clone()).collect();
+    let commands: Vec<CreateCommand> = command_defs
         .into_iter()
         .map(|cmd| {
             let desc = cmd.description.unwrap_or_else(|| "No description".to_string());
@@ -96,10 +96,28 @@ pub async fn op_upsert_guild_commands(
         })
         .collect();
 
-    http.create_guild_commands(serenity::model::id::GuildId::new(guild_id), &commands)
-        .await
-        .map(|_| ())
-        .map_err(|err| JsErrorBox::generic(err.to_string()))
+    match http.create_guild_commands(serenity::model::id::GuildId::new(guild_id), &commands).await {
+        Ok(_) => {
+            info!(
+                target: "oakmoss:ops",
+                guild_id,
+                count = names.len(),
+                commands = ?names,
+                "successfully updated the slash commands on the guild"
+            );
+            Ok(())
+        }
+        Err(err) => {
+            info!(
+                target: "oakmoss:ops",
+                guild_id,
+                ?err,
+                commands = ?names,
+                "failed to update slash commands"
+            );
+            Err(JsErrorBox::generic(err.to_string()))
+        }
+    }
 }
 
 /// Build the response payload and attachments for an interaction reply.
