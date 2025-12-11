@@ -181,7 +181,7 @@ pub async fn op_send_message(
     Ok(())
 }
 
-fn build_allowed_mentions(input: AllowedMentionsInput) -> CreateAllowedMentions {
+pub(crate) fn build_allowed_mentions(input: AllowedMentionsInput) -> CreateAllowedMentions {
     let mut allowed = CreateAllowedMentions::new();
 
     if let Some(parse) = input.parse {
@@ -212,7 +212,7 @@ fn build_allowed_mentions(input: AllowedMentionsInput) -> CreateAllowedMentions 
     allowed
 }
 
-fn build_embed(input: EmbedInput) -> Result<CreateEmbed, JsErrorBox> {
+pub(crate) fn build_embed(input: EmbedInput) -> Result<CreateEmbed, JsErrorBox> {
     let mut embed = CreateEmbed::new();
 
     if let Some(title) = input.title {
@@ -275,7 +275,7 @@ fn build_embed(input: EmbedInput) -> Result<CreateEmbed, JsErrorBox> {
     Ok(embed)
 }
 
-async fn build_attachment(
+pub(crate) async fn build_attachment(
     http: &Arc<Http>,
     attachment: AttachmentInput,
 ) -> Result<CreateAttachment, JsErrorBox> {
@@ -304,17 +304,4 @@ async fn build_attachment(
             Ok(att)
         }
     }
-}
-
-deno_core::extension!(
-    oakmoss_ops,
-    ops = [op_log, op_send_message],
-    options = { http: Arc<Http> },
-    state = |state, options| {
-        state.put(options.http.clone());
-    }
-);
-
-pub fn extension(http: Arc<Http>) -> deno_core::Extension {
-    oakmoss_ops::init(http)
 }
