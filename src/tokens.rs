@@ -35,25 +35,6 @@ impl TokenService {
         Self { db }
     }
 
-    pub async fn migrate(&self) -> Result<()> {
-        sqlx::query(
-            r#"
-            CREATE TABLE IF NOT EXISTS user_tokens (
-                token_id TEXT PRIMARY KEY,
-                user_id TEXT NOT NULL,
-                label TEXT,
-                token_hash TEXT NOT NULL,
-                created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
-                last_used_at TIMESTAMPTZ
-            )
-            "#,
-        )
-        .execute(&self.db)
-        .await?;
-
-        Ok(())
-    }
-
     /// Create a token for a user and return the plaintext value.
     pub async fn create_token(&self, user_id: &str, label: Option<String>) -> Result<String> {
         let token_id = Self::random_token(12);

@@ -70,23 +70,6 @@ impl DeploymentService {
         Self { db, cache, _cache_task: Arc::new(cache_task) }
     }
 
-    pub async fn migrate(&self) -> Result<()> {
-        sqlx::query(
-            r#"
-            CREATE TABLE IF NOT EXISTS deployments (
-                guild_id TEXT PRIMARY KEY,
-                language TEXT NOT NULL,
-                script TEXT NOT NULL,
-                created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
-                updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
-            )
-            "#,
-        )
-        .execute(&self.db)
-        .await?;
-        Ok(())
-    }
-
     pub async fn upsert_deployment(
         &self,
         guild_id: String,

@@ -60,6 +60,8 @@ async fn main() -> Result<()> {
         .map_err(|_| eyre!("invalid API_ADDR"))?;
 
     let pool = PgPoolOptions::new().max_connections(5).connect(&database_url).await?;
+    // Run compiled migrations once at startup to keep schema in sync.
+    sqlx::migrate!("./migrations").run(&pool).await?;
 
     let valkey_config = Config::from_url(&valkey_url)?;
     let valkey_client = Builder::from_config(valkey_config).build()?;
@@ -103,8 +105,6 @@ async fn main() -> Result<()> {
         }
     }
 
-    deployment_service.migrate().await?;
-    token_service.migrate().await?;
     let cached_deployments = deployment_service.list_deployments().await?;
     for deployment in cached_deployments {
         if let Err(err) = runtime.deploy_guild_script(deployment.clone()).await {
