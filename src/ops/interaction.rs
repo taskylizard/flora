@@ -4,6 +4,7 @@ use deno_core::{OpState, op2};
 use deno_error::JsErrorBox;
 use serde::Deserialize;
 use serenity::{
+    all::CreateAttachment,
     builder::{CreateInteractionResponse, CreateInteractionResponseMessage},
     http::Http,
     model::id::InteractionId,
@@ -43,6 +44,32 @@ pub async fn op_send_interaction_response(
         .parse::<u64>()
         .map_err(|_| JsErrorBox::generic("Invalid interaction id"))?;
 
+    let built = build_interaction_response(&http, args).await?;
+
+    let response = CreateInteractionResponse::Message(built.message);
+    http.create_interaction_response(
+        InteractionId::new(interaction_id),
+        &built.token,
+        &response,
+        built.files,
+    )
+    .await
+    .map_err(|err| JsErrorBox::generic(err.to_string()))?;
+
+    Ok(())
+}
+
+/// Build the response payload and attachments for an interaction reply.
+pub(crate) struct BuiltInteractionResponse {
+    pub message: CreateInteractionResponseMessage,
+    pub token: String,
+    pub files: Vec<CreateAttachment>,
+}
+
+pub(crate) async fn build_interaction_response(
+    http: &Arc<Http>,
+    args: InteractionResponseArgs,
+) -> Result<BuiltInteractionResponse, JsErrorBox> {
     let mut message = CreateInteractionResponseMessage::new();
     let mut has_content = false;
     let mut has_embeds = false;
@@ -77,7 +104,7 @@ pub async fn op_send_interaction_response(
     if let Some(attachments) = args.attachments {
         let mut files = Vec::with_capacity(attachments.len());
         for attachment in attachments {
-            files.push(build_attachment(&http, attachment).await?);
+            files.push(build_attachment(http, attachment).await?);
         }
         has_attachments = !files.is_empty();
         upload_files = files.clone();
@@ -88,15 +115,59 @@ pub async fn op_send_interaction_response(
         return Err(JsErrorBox::generic("Response must include content, embeds, or attachments"));
     }
 
-    let response = CreateInteractionResponse::Message(message);
-    http.create_interaction_response(
-        InteractionId::new(interaction_id),
-        &args.token,
-        &response,
-        upload_files,
-    )
-    .await
-    .map_err(|err| JsErrorBox::generic(err.to_string()))?;
+    Ok(BuiltInteractionResponse { message, token: args.token, files: upload_files })
+}
 
-    Ok(())
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use base64::{engine::general_purpose::STANDARD, Engine};
+
+    fn http() -> Arc<Http> {
+        Arc::new(Http::new("test"))
+    }
+
+    #[tokio::test]
+    async fn build_rejects_empty_payload() {
+        let args = InteractionResponseArgs {
+            interaction_id: "1".to_string(),
+            token: "token".to_string(),
+            content: None,
+            embeds: None,
+            attachments: None,
+            tts: None,
+            allowed_mentions: None,
+            ephemeral: None,
+        };
+
+        let result = build_interaction_response(&http(), args).await;
+        assert!(result.is_err(), "expected empty payload to be rejected");
+    }
+
+    #[tokio::test]
+    async fn build_allows_base64_attachment_and_ephemeral() {
+        let data = STANDARD.encode(b"hello");
+        let args = InteractionResponseArgs {
+            interaction_id: "1".to_string(),
+            token: "token".to_string(),
+            content: Some("hi".to_string()),
+            embeds: None,
+            attachments: Some(vec![AttachmentInput::Base64 {
+                data,
+                filename: "greet.txt".to_string(),
+                description: Some("greeting".to_string()),
+            }]),
+            tts: Some(false),
+            allowed_mentions: None,
+            ephemeral: Some(true),
+        };
+
+        let built = build_interaction_response(&http(), args).await.unwrap();
+        assert_eq!(built.files.len(), 1);
+
+        let value = serde_json::to_value(&built.message).unwrap();
+        let flags = value.get("flags").and_then(|v| v.as_u64()).unwrap_or(0);
+        // 1 << 6 is the ephemeral flag per Discord docs.
+        assert_eq!(flags & (1 << 6), 1 << 6, "expected ephemeral flag to be set");
+    }
 }
