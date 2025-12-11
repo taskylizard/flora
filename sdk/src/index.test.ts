@@ -12,6 +12,7 @@ describe('createBot slash commands', () => {
 
     const run = mock(async (ctx: InteractionContext) => {
       expect(ctx.msg.command_name).toBe('ping')
+      expect(ctx.options).toEqual({ text: 'hello', nested: { count: 2 } })
       await ctx.reply({ content: 'pong', ephemeral: true })
     })
 
@@ -27,7 +28,12 @@ describe('createBot slash commands', () => {
         interaction_token: 'token',
         application_id: 'app',
         command_name: 'ping',
-        data: {},
+        data: {
+          options: [
+            { name: 'text', value: 'hello' },
+            { name: 'nested', options: [{ name: 'count', value: 2 }] },
+          ],
+        },
         user: { id: 'u', username: 'u', bot: false },
       },
       reply,
