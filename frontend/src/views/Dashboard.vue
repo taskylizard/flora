@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { computed, onMounted, ref, watch } from 'vue'
+import { computed, onMounted, ref } from 'vue'
 import {
   AlertCircleIcon,
   CheckIcon,
@@ -15,6 +15,7 @@ import {
 } from 'lucide-vue-next'
 import { format } from 'date-fns'
 import { toast } from 'vue-sonner'
+import { useDark, useToggle } from '@vueuse/core'
 
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar'
 import { Badge } from '@/components/ui/badge'
@@ -37,8 +38,12 @@ const deployments = ref<Deployment[]>([])
 const tokens = ref<Token[]>([])
 const creatingToken = ref(false)
 const newTokenLabel = ref('')
-const isDark = ref(false)
-const THEME_KEY = 'oakmoss_theme'
+const isDark = useDark({
+  storageKey: 'oakmoss_theme',
+  valueDark: 'dark',
+  valueLight: 'light',
+})
+const toggleDark = useToggle(isDark)
 
 const guildMap = computed(() => {
   const map = new Map<string, Guild>()
@@ -131,25 +136,6 @@ const formatDate = (value?: string | null) => {
   return format(d, 'PPP p')
 }
 
-const applyTheme = () => {
-  document.documentElement.classList.toggle('dark', isDark.value)
-}
-
-onMounted(() => {
-  const saved = localStorage.getItem(THEME_KEY)
-  if (saved === 'dark' || saved === 'light') {
-    isDark.value = saved === 'dark'
-  } else {
-    isDark.value = window.matchMedia?.('(prefers-color-scheme: dark)').matches ?? false
-  }
-  applyTheme()
-})
-
-watch(isDark, (val) => {
-  localStorage.setItem(THEME_KEY, val ? 'dark' : 'light')
-  applyTheme()
-})
-
 onMounted(loadAll)
 </script>
 
@@ -189,7 +175,7 @@ onMounted(loadAll)
               class="border border-border"
               :aria-pressed="isDark"
               aria-label="Toggle theme"
-              @click="isDark = !isDark"
+              @click="toggleDark()"
             >
               <SunIcon v-if="!isDark" class="h-4 w-4" />
               <MoonIcon v-else class="h-4 w-4" />
