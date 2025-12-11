@@ -91,6 +91,7 @@ type MessageReplyOptions = {
     repliedUser?: boolean
   }
   replyTo?: string | null // override or disable auto-reply
+  ephemeral?: boolean // only for interaction replies
 }
 ```
 
@@ -138,10 +139,27 @@ createBot({
 
 - `defineCommand(command: { name: string; description?: string; run(ctx): void | Promise<void> })`: returns the command unchanged; use it for type safety and clarity.
 - `createBot(options)`: wires message handlers for prefix commands.
-  - `options.prefix?: string` — command prefix (default `"!"`).
-  - `options.commands?: Command[]` — commands to register (preferred).
-  - `options.prefixCommands?: Command[]` — alias of `commands` for compatibility.
+- `options.prefix?: string` — command prefix (default `"!"`).
+- `options.commands?: Command[]` — commands to register (preferred).
+- `options.prefixCommands?: Command[]` — alias of `commands` for compatibility.
+- `options.slashCommands?: SlashCommand[]` — handlers invoked for `interactionCreate` slash events.
 - Types re-exported for consumers: `MessageAuthor`, `MessagePayload`, `MessageContext`, `MessageUpdatePayload`, `MessageUpdateContext`, `MessageDeletePayload`, `MessageDeleteContext`, `MessageDeleteBulkPayload`, `MessageDeleteBulkContext`, `Command`.
+
+Slash commands
+
+```ts
+const slashPing = defineSlashCommand({
+  name: 'ping',
+  run: async (ctx) => {
+    await ctx.reply({ content: 'pong', ephemeral: true })
+  },
+})
+
+createBot({ slashCommands: [slashPing] })
+```
+
+- `ctx.msg` matches the `InteractionPayload` shape (ids, token, user, locale, command name, raw `data`).
+- `ctx.reply` routes through interaction responses; pass `ephemeral: true` for private replies.
 
 ### How command dispatch works
 
