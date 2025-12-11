@@ -144,22 +144,42 @@ createBot({
 - `options.prefixCommands?: Command[]` — alias of `commands` for compatibility.
 - `options.slashCommands?: SlashCommand[]` — handlers invoked for `interactionCreate` slash events.
 - Types re-exported for consumers: `MessageAuthor`, `MessagePayload`, `MessageContext`, `MessageUpdatePayload`, `MessageUpdateContext`, `MessageDeletePayload`, `MessageDeleteContext`, `MessageDeleteBulkPayload`, `MessageDeleteBulkContext`, `Command`.
+- Types re-exported for slash commands: `SlashCommand`, `SlashCommandOption`, `InteractionContext`, `InteractionPayload`.
 
 Slash commands
 
 ```ts
 const slashPing = defineSlashCommand({
   name: 'ping',
+  description: 'Replies with pong',
   run: async (ctx) => {
     await ctx.reply({ content: 'pong', ephemeral: true })
   },
 })
 
-createBot({ slashCommands: [slashPing] })
+const slashEcho = defineSlashCommand({
+  name: 'echo',
+  description: 'Echo back your input',
+  options: [
+    {
+      name: 'text',
+      description: 'What should I repeat?',
+      type: 'string',
+      required: true,
+    },
+  ],
+  async run(ctx) {
+    const content = ctx.msg?.data?.options?.[0]?.value ?? '(nothing)'
+    await ctx.reply({ content })
+  },
+})
+
+createBot({ slashCommands: [slashPing, slashEcho] })
 ```
 
 - `ctx.msg` matches the `InteractionPayload` shape (ids, token, user, locale, command name, raw `data`).
 - `ctx.reply` routes through interaction responses; pass `ephemeral: true` for private replies.
+- Slash command options support types: `string` (default), `integer`, `number`, `boolean`; set `required: true` as needed.
 
 ### How command dispatch works
 
