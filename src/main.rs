@@ -74,7 +74,11 @@ async fn main() -> Result<()> {
 
     let intents = GatewayIntents::all();
 
-    let handler = DiscordHandler { runtime: runtime.clone() };
+    let handler = DiscordHandler {
+        runtime: runtime.clone(),
+        http: http.clone(),
+        application_id: Arc::new(std::sync::RwLock::new(None)),
+    };
 
     let mut client = Client::builder(&token, intents).event_handler(handler).await?;
 

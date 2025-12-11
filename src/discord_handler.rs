@@ -2,9 +2,10 @@ use std::sync::Arc;
 
 use serde::Serialize;
 use serenity::all::{
-    ChannelId, CommandInteraction, Context, EventHandler, GuildId, Interaction, Message, MessageId,
-    MessageUpdateEvent, Ready, User, async_trait,
+    ApplicationId, ChannelId, CommandInteraction, Context, EventHandler, GuildId, Interaction,
+    Message, MessageId, MessageUpdateEvent, Ready, User, async_trait,
 };
+use serenity::builder::CreateCommand;
 use tracing::{error, info};
 
 use crate::runtime::BotRuntime;
@@ -12,12 +13,27 @@ use crate::runtime::BotRuntime;
 #[derive(Clone)]
 pub struct DiscordHandler {
     pub runtime: Arc<BotRuntime>,
+    pub http: Arc<serenity::http::Http>,
+    pub application_id: Arc<std::sync::RwLock<Option<ApplicationId>>>,
 }
 
 #[async_trait]
 impl EventHandler for DiscordHandler {
     async fn ready(&self, _ctx: Context, ready: Ready) {
         info!("Connected as {}", ready.user.name);
+
+        {
+            let mut app_id = self.application_id.write().unwrap();
+            *app_id = Some(ready.application.id);
+        }
+        self.http.set_application_id(ready.application.id);
+
+        for guild in &ready.guilds {
+            if let Err(err) = self.register_guild_commands(guild.id).await {
+                error!("failed to register guild commands {}: {:?}", guild.id, err);
+            }
+        }
+
         let payload = ReadyPayload::from(&ready);
         if let Err(err) = self
             .runtime
@@ -300,6 +316,15 @@ impl From<&CommandInteraction> for InteractionCreatePayload {
             locale: Some(interaction.locale.clone()),
             guild_locale: interaction.guild_locale.clone(),
         }
+    }
+}
+
+impl DiscordHandler {
+    async fn register_guild_commands(&self, guild_id: GuildId) -> serenity::Result<()> {
+        // Minimal built-in commands; extendable later.
+        let commands = vec![CreateCommand::new("ping").description("Check if the bot is alive")];
+
+        self.http.create_guild_commands(guild_id, &commands).await.map(|_| ())
     }
 }
 
