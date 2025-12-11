@@ -5,6 +5,7 @@ mod handlers;
 mod ops;
 mod runtime;
 mod state;
+mod tokens;
 mod transpile;
 mod v8_init;
 
@@ -21,6 +22,7 @@ use runtime::BotRuntime;
 use serenity::all::{Client, GatewayIntents};
 use sqlx::postgres::PgPoolOptions;
 use state::AppState;
+use tokens::TokenService;
 use tokio::net::TcpListener;
 use tracing::error;
 
@@ -64,6 +66,7 @@ async fn main() -> Result<()> {
     let valkey_task = valkey_client.init().await?;
     let deployment_service =
         DeploymentService::new(pool.clone(), valkey_client.clone(), valkey_task);
+    let token_service = TokenService::new(pool.clone());
     let auth_task = valkey_client.clone().init().await?;
     let auth_service = AuthService::new(
         AuthConfig {
@@ -101,6 +104,7 @@ async fn main() -> Result<()> {
     }
 
     deployment_service.migrate().await?;
+    token_service.migrate().await?;
     let cached_deployments = deployment_service.list_deployments().await?;
     for deployment in cached_deployments {
         if let Err(err) = runtime.deploy_guild_script(deployment.clone()).await {
@@ -122,6 +126,8 @@ async fn main() -> Result<()> {
         runtime: runtime.clone(),
         deployments: deployment_service.clone(),
         auth: auth_service.clone(),
+        tokens: token_service.clone(),
+        http: http.clone(),
     };
 
     let api_router = create_router(api_state);

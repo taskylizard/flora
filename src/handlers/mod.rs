@@ -7,8 +7,10 @@ use crate::state::AppState;
 pub mod auth;
 pub mod deployments;
 pub mod error;
+pub mod guilds;
 pub mod health;
 pub mod response;
+pub mod tokens;
 
 /// Build the top-level router with API routes and interactive docs.
 pub fn create_router(state: AppState) -> Router {
@@ -16,6 +18,8 @@ pub fn create_router(state: AppState) -> Router {
     #[openapi(
         nest(
             (path = "/auth", api = auth::AuthApi),
+            (path = "/guilds", api = guilds::GuildApi),
+            (path = "/tokens", api = tokens::TokenApi),
             (path = "/deployments", api = deployments::DeploymentApi),
             (path = "/health", api = health::HealthApi)
         ),
@@ -27,6 +31,8 @@ pub fn create_router(state: AppState) -> Router {
 
     let api_router = Router::new()
         .merge(auth::router())
+        .merge(guilds::router())
+        .merge(tokens::router())
         .merge(deployments::router())
         .route("/health", get(health::health_check));
 

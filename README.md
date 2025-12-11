@@ -35,6 +35,8 @@ A single-runtime Discord bot engine that empowers server administrators to run T
 ## API authentication
 
 - Login flow: `GET /auth/login` redirects to Discord OAuth (scopes: `identify guilds guilds.members.read`). The callback at `/auth/callback` sets an HTTP-only session cookie. Use `/auth/me` to verify the session.
+- Discoverable guilds: `GET /guilds` lists servers where the current user is admin/manage-guild and the bot is present.
+- CLI tokens: `POST /tokens` to mint a user token (returns plaintext once), `GET /tokens` to list, `DELETE /tokens/{id}` to revoke. Tokens can be used as `Authorization: Bearer <token>` in API calls.
 
 ## Developing
 

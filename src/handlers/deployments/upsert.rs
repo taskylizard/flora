@@ -9,7 +9,7 @@ use utoipa::ToSchema;
 
 use crate::{
     deployments::{Deployment, ScriptLanguage},
-    handlers::auth::{ensure_guild_admin, require_session},
+    handlers::auth::{ensure_guild_admin, require_identity},
     handlers::{error::ApiError, response::ApiJson},
     state::AppState,
 };
@@ -63,8 +63,8 @@ pub async fn upsert_deployment_handler(
     headers: HeaderMap,
     Json(request): Json<DeploymentRequest>,
 ) -> Result<ApiJson<DeploymentResponse>, ApiError> {
-    let session = require_session(&state.auth, &headers).await?;
-    ensure_guild_admin(&state.auth, &session, &guild_id).await?;
+    let identity = require_identity(&state, &headers).await?;
+    ensure_guild_admin(&state, &identity, &guild_id).await?;
 
     let language = ScriptLanguage::from_option(request.language);
     let deployment = state
