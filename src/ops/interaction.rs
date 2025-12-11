@@ -5,10 +5,13 @@ use deno_error::JsErrorBox;
 use serde::Deserialize;
 use serenity::{
     all::CreateAttachment,
-    builder::{CreateCommand, CreateInteractionResponse, CreateInteractionResponseMessage},
+    builder::{
+        CreateCommand, CreateCommandOption, CreateInteractionResponse, CreateInteractionResponseMessage,
+    },
     http::Http,
     model::id::InteractionId,
 };
+use serenity::all::CommandOptionType;
 use tracing::info;
 
 use super::message::{
@@ -41,6 +44,17 @@ pub(crate) struct UpsertGuildCommandsArgs {
 pub(crate) struct SlashCommandDef {
     pub name: String,
     pub description: Option<String>,
+    pub options: Option<Vec<SlashCommandOptionDef>>,
+}
+
+#[derive(Deserialize)]
+pub(crate) struct SlashCommandOptionDef {
+    pub name: String,
+    pub description: String,
+    #[serde(alias = "type", default)]
+    pub kind: Option<String>,
+    #[serde(default)]
+    pub required: Option<bool>,
 }
 
 #[op2(async)]
@@ -92,9 +106,15 @@ pub async fn op_upsert_guild_commands(
         .into_iter()
         .map(|cmd| {
             let desc = cmd.description.unwrap_or_else(|| "No description".to_string());
-            CreateCommand::new(cmd.name).description(desc)
+            let mut builder = CreateCommand::new(cmd.name).description(desc);
+            if let Some(options) = cmd.options {
+                for opt in options {
+                    builder = builder.add_option(build_option(opt)?);
+                }
+            }
+            Ok(builder)
         })
-        .collect();
+        .collect::<Result<_, JsErrorBox>>()?;
 
     match http.create_guild_commands(serenity::model::id::GuildId::new(guild_id), &commands).await {
         Ok(_) => {
@@ -118,6 +138,21 @@ pub async fn op_upsert_guild_commands(
             Err(JsErrorBox::generic(err.to_string()))
         }
     }
+}
+
+fn build_option(opt: SlashCommandOptionDef) -> Result<CreateCommandOption, JsErrorBox> {
+    let opt_type = match opt.kind.as_deref() {
+        Some("integer") => CommandOptionType::Integer,
+        Some("number") => CommandOptionType::Number,
+        Some("boolean") => CommandOptionType::Boolean,
+        _ => CommandOptionType::String,
+    };
+
+    let mut builder = CreateCommandOption::new(opt_type, opt.name, opt.description);
+    if let Some(required) = opt.required {
+        builder = builder.required(required);
+    }
+    Ok(builder)
 }
 
 /// Build the response payload and attachments for an interaction reply.
