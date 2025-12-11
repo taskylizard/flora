@@ -29,6 +29,7 @@ code += `
   if (!global.oakmoss) return;
   global.createBot = global.oakmoss.createBot;
   global.defineCommand = global.oakmoss.defineCommand;
+  global.defineSlashCommand = global.oakmoss.defineSlashCommand;
 })(globalThis);
 `
 
