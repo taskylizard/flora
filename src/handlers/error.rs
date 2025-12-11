@@ -25,6 +25,9 @@ pub enum ApiError {
     /// The request was understood but refused.
     #[error("forbidden: {message}")]
     Forbidden { message: String },
+    /// Client sent invalid input.
+    #[error("bad request: {message}")]
+    BadRequest { message: String },
     /// Any unrecoverable server error.
     #[error("internal server error")]
     Internal { message: String },
@@ -46,6 +49,10 @@ impl ApiError {
     pub fn forbidden<M: Into<String>>(message: M) -> Self {
         ApiError::Forbidden { message: message.into() }
     }
+
+    pub fn bad_request<M: Into<String>>(message: M) -> Self {
+        ApiError::BadRequest { message: message.into() }
+    }
 }
 
 impl IntoResponse for ApiError {
@@ -54,6 +61,7 @@ impl IntoResponse for ApiError {
             ApiError::NotFound { .. } => StatusCode::NOT_FOUND,
             ApiError::Unauthorized { .. } => StatusCode::UNAUTHORIZED,
             ApiError::Forbidden { .. } => StatusCode::FORBIDDEN,
+            ApiError::BadRequest { .. } => StatusCode::BAD_REQUEST,
             ApiError::Internal { .. } => StatusCode::INTERNAL_SERVER_ERROR,
         };
 
@@ -78,6 +86,10 @@ impl utoipa::IntoResponses for ApiError {
             .description("Forbidden")
             .content("application/json", content.clone())
             .build();
+        let bad_request = ResponseBuilder::new()
+            .description("Bad request")
+            .content("application/json", content.clone())
+            .build();
         let internal = ResponseBuilder::new()
             .description("Internal server error")
             .content("application/json", content)
@@ -87,6 +99,7 @@ impl utoipa::IntoResponses for ApiError {
             ("404".to_string(), RefOr::T(not_found)),
             ("401".to_string(), RefOr::T(unauthorized)),
             ("403".to_string(), RefOr::T(forbidden)),
+            ("400".to_string(), RefOr::T(bad_request)),
             ("500".to_string(), RefOr::T(internal)),
         ])
     }
