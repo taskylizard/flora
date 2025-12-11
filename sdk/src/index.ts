@@ -34,6 +34,7 @@ export type MessageReplyOptions = {
   tts?: boolean
   allowedMentions?: AllowedMentions
   replyTo?: string | null
+  ephemeral?: boolean
 }
 
 type BaseContext<TPayload> = {
@@ -87,6 +88,21 @@ export type MessageDeleteBulkPayload = {
 
 export type MessageDeleteBulkContext = BaseContext<MessageDeleteBulkPayload>
 
+export type InteractionPayload = {
+  interaction_id: string
+  interaction_token: string
+  application_id: string
+  guild_id?: string | null
+  channel_id?: string | null
+  user: MessageAuthor
+  command_name: string
+  data: any
+  locale?: string | null
+  guild_locale?: string | null
+}
+
+export type InteractionContext = BaseContext<InteractionPayload>
+
 export type Command = {
   name: string
   description?: string
@@ -97,15 +113,27 @@ export function defineCommand(command: Command): Command {
   return command
 }
 
+export type SlashCommand = {
+  name: string
+  description?: string
+  run: (ctx: InteractionContext) => Promise<void> | void
+}
+
+export function defineSlashCommand(command: SlashCommand): SlashCommand {
+  return command
+}
+
 type CreateOptions = {
   prefix?: string
   commands?: Command[]
   prefixCommands?: Command[]
+  slashCommands?: SlashCommand[]
 }
 
 export function createBot(options: CreateOptions) {
   const prefix = options.prefix ?? '!'
   const commands = options.commands ?? options.prefixCommands ?? []
+  const slashCommands = options.slashCommands ?? []
 
   on('messageCreate', async (ctx: MessageContext) => {
     if (!ctx.msg || !ctx.msg.content) return
@@ -120,5 +148,13 @@ export function createBot(options: CreateOptions) {
     if (!command) return
 
     await command.run({ ...ctx, args })
+  })
+
+  on('interactionCreate', async (ctx: InteractionContext) => {
+    if (!ctx.msg) return
+    const command = slashCommands.find((cmd) => cmd.name === ctx.msg.command_name)
+    if (!command) return
+
+    await command.run(ctx)
   })
 }
