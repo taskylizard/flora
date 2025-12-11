@@ -133,9 +133,9 @@ onMounted(loadAll)
 <template>
   <div class="min-h-screen bg-background text-foreground">
     <header class="border-b bg-card/60 backdrop-blur supports-[backdrop-filter]:backdrop-blur">
-      <div class="mx-auto flex max-w-6xl items-center justify-between px-4 py-3">
+      <div class="mx-auto flex max-w-6xl flex-col gap-3 px-4 py-3 sm:flex-row sm:items-center sm:justify-between">
         <div class="flex items-center gap-3">
-          <div class="flex h-9 w-9 items-center justify-center rounded-xl bg-primary text-primary-foreground">
+          <div class="flex h-10 w-10 items-center justify-center rounded-xl bg-primary text-primary-foreground">
             <UploadCloudIcon class="h-4 w-4" aria-hidden="true" />
           </div>
           <div>
@@ -143,22 +143,26 @@ onMounted(loadAll)
             <p class="text-xs text-muted-foreground">Guild deployments & tokens</p>
           </div>
         </div>
-        <div class="flex items-center gap-3">
-          <Button variant="outline" size="sm" @click="goToLogin">
-            Re-auth
-          </Button>
-          <Separator orientation="vertical" class="h-6" />
+        <div class="flex flex-col gap-3 sm:flex-row sm:items-center sm:gap-4">
           <div v-if="me" class="flex items-center gap-2">
-            <Avatar class="h-8 w-8">
+            <Avatar class="h-9 w-9">
               <AvatarImage :src="me.avatar ?? undefined" alt="User avatar" />
               <AvatarFallback>
                 {{ me.username?.slice(0, 2)?.toUpperCase() ?? 'U' }}
               </AvatarFallback>
             </Avatar>
             <div class="leading-tight">
-              <p class="text-sm font-medium">{{ me.global_name ?? me.username }}</p>
-              <p class="text-xs text-muted-foreground">{{ me.id }}</p>
+              <p class="text-sm font-medium truncate max-w-[12rem] sm:max-w-[16rem]">
+                {{ me.global_name ?? me.username }}
+              </p>
+              <p class="text-xs text-muted-foreground truncate max-w-[12rem] sm:max-w-[16rem]">{{ me.id }}</p>
             </div>
+          </div>
+          <div class="flex items-center gap-3">
+            <Separator orientation="vertical" class="hidden h-6 sm:block" />
+            <Button variant="outline" size="sm" class="w-full sm:w-auto" @click="goToLogin">
+              Re-auth
+            </Button>
           </div>
         </div>
       </div>
@@ -186,7 +190,7 @@ onMounted(loadAll)
             <div class="space-y-1">
               <p class="text-base font-semibold">{{ me.global_name ?? me.username }}</p>
               <p class="text-sm text-muted-foreground">{{ me.username }}</p>
-              <Badge variant="secondary">ID: {{ me.id }}</Badge>
+              <Badge variant="secondary" class="w-full max-w-xs truncate">ID: {{ me.id }}</Badge>
             </div>
           </div>
           <div v-else class="flex items-center gap-2 text-sm text-destructive">
@@ -206,13 +210,13 @@ onMounted(loadAll)
             <CardDescription>Manage API tokens for CLI or CI usage.</CardDescription>
           </CardHeader>
           <CardContent class="space-y-4">
-            <div class="flex flex-wrap items-center gap-2">
+            <div class="flex flex-col gap-2 sm:flex-row sm:items-center">
               <Input
                 v-model="newTokenLabel"
                 placeholder="Label (optional)"
-                class="w-full min-w-0 md:w-56"
+                class="w-full min-w-0 sm:w-56"
               />
-              <Button size="sm" :loading="creatingToken" @click="createToken">
+              <Button size="sm" class="w-full sm:w-auto" :loading="creatingToken" @click="createToken">
                 <PlusIcon class="h-4 w-4" />
                 Create token
               </Button>
@@ -224,7 +228,7 @@ onMounted(loadAll)
               <div
                 v-for="token in tokens"
                 :key="token.token_id"
-                class="flex items-center justify-between rounded-lg border px-3 py-2 text-sm"
+                class="flex flex-col gap-2 rounded-lg border px-3 py-2 text-sm sm:flex-row sm:items-center sm:justify-between"
               >
                 <div class="space-y-0.5">
                   <p class="font-medium">{{ token.label ?? 'Untitled token' }}</p>
@@ -232,7 +236,7 @@ onMounted(loadAll)
                     Created {{ formatDate(token.created_at) }} · Last used {{ formatDate(token.last_used_at) }}
                   </p>
                 </div>
-                <div class="flex items-center gap-2">
+                <div class="flex items-center gap-1 sm:gap-2 self-start sm:self-auto">
                   <Button
                     variant="ghost"
                     size="icon-sm"
@@ -273,7 +277,7 @@ onMounted(loadAll)
             <div
               v-for="deployment in deployments"
               :key="deployment.guild_id"
-              class="flex items-center justify-between rounded-lg border px-3 py-2 text-sm"
+              class="flex flex-col gap-2 rounded-lg border px-3 py-2 text-sm sm:flex-row sm:items-center sm:justify-between"
             >
               <div class="space-y-0.5">
                 <p class="font-medium">
@@ -310,7 +314,7 @@ onMounted(loadAll)
           <div
             v-for="guild in guilds"
             :key="guild.id"
-            class="flex items-center justify-between rounded-lg border px-3 py-2"
+            class="flex flex-col gap-2 rounded-lg border px-3 py-2 sm:flex-row sm:items-center sm:justify-between"
           >
             <div class="flex items-center gap-3">
               <div
