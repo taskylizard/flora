@@ -201,6 +201,13 @@ fn new_js_runtime(http: Arc<Http>) -> JsRuntimeState {
     }
 }
 
+fn set_guild_context(js_state: &mut JsRuntimeState, guild_id: &str) -> Result<(), AnyError> {
+    let _isolate_guard = enter_isolate(&mut js_state.runtime);
+    let code = format!("globalThis.__oakmossGuildId = \"{}\";", guild_id);
+    js_state.runtime.execute_script("oakmoss:guild_context", code)?;
+    Ok(())
+}
+
 async fn initialize_runtime(js_state: &mut JsRuntimeState) -> Result<(), AnyError> {
     let _isolate_guard = enter_isolate(&mut js_state.runtime);
     js_state.runtime.execute_script("oakmoss:bootstrap", RUNTIME_PRELUDE)?;
@@ -253,6 +260,7 @@ async fn load_guild_deployment(
         "creating guild runtime"
     );
     let mut runtime = new_js_runtime(state.http.clone());
+    set_guild_context(&mut runtime, &deployment.guild_id)?;
     info!(
         target: "oakmoss:runtime",
         guild_id = deployment.guild_id,
@@ -405,6 +413,14 @@ globalThis.__oakmossDispatch = async function __oakmossDispatch(event, payload) 
 
 globalThis.console = {
   log: (...args) => core.ops.op_log(args),
+};
+
+globalThis.registerSlashCommands = function registerSlashCommands(commands) {
+  if (!globalThis.__oakmossGuildId) return;
+  return core.ops.op_upsert_guild_commands({
+    guildId: globalThis.__oakmossGuildId,
+    commands,
+  });
 };
 
 function normalizeReply(message, payload) {

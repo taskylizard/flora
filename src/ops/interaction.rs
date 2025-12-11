@@ -5,7 +5,7 @@ use deno_error::JsErrorBox;
 use serde::Deserialize;
 use serenity::{
     all::CreateAttachment,
-    builder::{CreateInteractionResponse, CreateInteractionResponseMessage},
+    builder::{CreateCommand, CreateInteractionResponse, CreateInteractionResponseMessage},
     http::Http,
     model::id::InteractionId,
 };
@@ -27,6 +27,19 @@ pub(crate) struct InteractionResponseArgs {
     #[serde(alias = "allowedMentions")]
     pub allowed_mentions: Option<AllowedMentionsInput>,
     pub ephemeral: Option<bool>,
+}
+
+#[derive(Deserialize)]
+pub(crate) struct UpsertGuildCommandsArgs {
+    #[serde(alias = "guildId")]
+    pub guild_id: String,
+    pub commands: Vec<SlashCommandDef>,
+}
+
+#[derive(Deserialize)]
+pub(crate) struct SlashCommandDef {
+    pub name: String,
+    pub description: Option<String>,
 }
 
 #[op2(async)]
@@ -57,6 +70,36 @@ pub async fn op_send_interaction_response(
     .map_err(|err| JsErrorBox::generic(err.to_string()))?;
 
     Ok(())
+}
+
+#[op2(async)]
+pub async fn op_upsert_guild_commands(
+    state: Rc<RefCell<OpState>>,
+    #[serde] args: UpsertGuildCommandsArgs,
+) -> Result<(), JsErrorBox> {
+    let http = {
+        let state = state.borrow();
+        state.borrow::<Arc<Http>>().clone()
+    };
+
+    let guild_id = args
+        .guild_id
+        .parse::<u64>()
+        .map_err(|_| JsErrorBox::generic("Invalid guild id"))?;
+
+    let commands: Vec<CreateCommand> = args
+        .commands
+        .into_iter()
+        .map(|cmd| {
+            let desc = cmd.description.unwrap_or_else(|| "No description".to_string());
+            CreateCommand::new(cmd.name).description(desc)
+        })
+        .collect();
+
+    http.create_guild_commands(serenity::model::id::GuildId::new(guild_id), &commands)
+        .await
+        .map(|_| ())
+        .map_err(|err| JsErrorBox::generic(err.to_string()))
 }
 
 /// Build the response payload and attachments for an interaction reply.
@@ -121,7 +164,7 @@ pub(crate) async fn build_interaction_response(
 #[cfg(test)]
 mod tests {
     use super::*;
-    use base64::{engine::general_purpose::STANDARD, Engine};
+    use base64::{Engine, engine::general_purpose::STANDARD};
 
     fn http() -> Arc<Http> {
         Arc::new(Http::new("test"))
