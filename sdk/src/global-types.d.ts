@@ -31,6 +31,9 @@ declare global {
   const createBot: typeof import('./index').createBot
   const defineCommand: typeof import('./index').defineCommand
   const defineSlashCommand: typeof import('./index').defineSlashCommand
+  const registerSlashCommands: (commands: { name: string; description?: string }[]) =>
+    | Promise<void>
+    | void
 }
 
 export {}
