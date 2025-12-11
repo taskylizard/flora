@@ -16,6 +16,11 @@ A single-runtime Discord bot engine that empowers server administrators to run T
    - `DATABASE_URL` (default: `postgres://user:pass@localhost:5433/oakmoss`)
    - `VALKEY_URL` (default: `redis://127.0.0.1:5434/0`)
    - `API_ADDR` (default: `0.0.0.0:3000`)
+   - `DISCORD_CLIENT_ID` / `DISCORD_CLIENT_SECRET` (required for OAuth login)
+   - `DISCORD_REDIRECT_URI` (default: `http://localhost:3000/auth/callback`)
+   - `SESSION_SECRET` (32+ chars for signing session cookies)
+   - `SESSION_TTL_SECS` (optional, default 30 days)
+   - `COOKIE_SECURE` (`true`/`false`, default based on redirect uri scheme)
 2. Start supporting services (optional): `./dev.sh` (Postgres/Redis).
 3. Run: `cargo run`\
    Logging defaults are already set in `.envrc`: `RUST_LOG=oakmoss=debug,oakmoss::runtime=trace,serenity=info`.
@@ -26,6 +31,10 @@ A single-runtime Discord bot engine that empowers server administrators to run T
 - The bundled SDK is loaded from `dist/sdk-bundle.js` at startup.
 - For local development, if `scripts/bot.ts` exists it will also be loaded automatically.
 - After editing the TypeScript SDK under `sdk/`, rebuild the bundle: `bun run sdk/build.ts`.
+
+## API authentication
+
+- Login flow: `GET /auth/login` redirects to Discord OAuth (scopes: `identify guilds guilds.members.read`). The callback at `/auth/callback` sets an HTTP-only session cookie. Use `/auth/me` to verify the session.
 
 ## Developing
 

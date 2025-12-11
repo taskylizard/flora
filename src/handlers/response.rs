@@ -1,6 +1,10 @@
 use std::collections::BTreeMap;
 
-use axum::{Json, response::IntoResponse};
+use axum::{
+    Json, http,
+    response::{IntoResponse, Response},
+};
+use cookie::Cookie;
 use serde::Serialize;
 use utoipa::openapi::{RefOr, content::ContentBuilder, response::ResponseBuilder};
 use utoipa::{IntoResponses, ToSchema};
@@ -36,5 +40,53 @@ where
             .build();
 
         BTreeMap::from([("200".to_string(), RefOr::T(response))])
+    }
+}
+
+/// JSON response with attached Set-Cookie headers.
+pub struct ApiJsonWithCookies<T> {
+    pub payload: ApiJson<T>,
+    pub cookies: Vec<Cookie<'static>>,
+}
+
+impl<T> IntoResponse for ApiJsonWithCookies<T>
+where
+    T: Serialize,
+{
+    fn into_response(self) -> Response {
+        let mut response = self.payload.into_response();
+        for cookie in self.cookies {
+            if let Ok(value) = http::HeaderValue::from_str(&cookie.to_string()) {
+                response.headers_mut().append(http::header::SET_COOKIE, value);
+            }
+        }
+        response
+    }
+}
+
+impl<T> IntoResponses for ApiJsonWithCookies<T>
+where
+    T: ToSchema + Serialize,
+{
+    fn responses() -> BTreeMap<String, RefOr<utoipa::openapi::response::Response>> {
+        ApiJson::<T>::responses()
+    }
+}
+
+/// Simple redirect wrapper that documents a 302.
+pub struct ApiRedirect {
+    pub response: Response,
+}
+
+impl IntoResponse for ApiRedirect {
+    fn into_response(self) -> Response {
+        self.response
+    }
+}
+
+impl IntoResponses for ApiRedirect {
+    fn responses() -> BTreeMap<String, RefOr<utoipa::openapi::response::Response>> {
+        let response = ResponseBuilder::new().description("Redirect response").build();
+        BTreeMap::from([("302".to_string(), RefOr::T(response))])
     }
 }

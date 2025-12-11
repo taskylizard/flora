@@ -4,6 +4,7 @@ use utoipa_scalar::{Scalar, Servable as ScalarServable};
 
 use crate::state::AppState;
 
+pub mod auth;
 pub mod deployments;
 pub mod error;
 pub mod health;
@@ -14,6 +15,7 @@ pub fn create_router(state: AppState) -> Router {
     #[derive(OpenApi)]
     #[openapi(
         nest(
+            (path = "/auth", api = auth::AuthApi),
             (path = "/deployments", api = deployments::DeploymentApi),
             (path = "/health", api = health::HealthApi)
         ),
@@ -23,8 +25,10 @@ pub fn create_router(state: AppState) -> Router {
     )]
     struct ApiDoc;
 
-    let api_router =
-        Router::new().merge(deployments::router()).route("/health", get(health::health_check));
+    let api_router = Router::new()
+        .merge(auth::router())
+        .merge(deployments::router())
+        .route("/health", get(health::health_check));
 
     let oapi_router = Router::new()
         .merge(Scalar::with_url("/scalar", ApiDoc::openapi()))

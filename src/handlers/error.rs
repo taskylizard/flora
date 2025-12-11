@@ -19,6 +19,12 @@ pub enum ApiError {
     /// The requested resource does not exist.
     #[error("resource not found: {message}")]
     NotFound { message: String },
+    /// Authentication is required or invalid.
+    #[error("unauthorized: {message}")]
+    Unauthorized { message: String },
+    /// The request was understood but refused.
+    #[error("forbidden: {message}")]
+    Forbidden { message: String },
     /// Any unrecoverable server error.
     #[error("internal server error")]
     Internal { message: String },
@@ -32,12 +38,22 @@ impl ApiError {
     pub fn not_found<M: Into<String>>(message: M) -> Self {
         ApiError::NotFound { message: message.into() }
     }
+
+    pub fn unauthorized<M: Into<String>>(message: M) -> Self {
+        ApiError::Unauthorized { message: message.into() }
+    }
+
+    pub fn forbidden<M: Into<String>>(message: M) -> Self {
+        ApiError::Forbidden { message: message.into() }
+    }
 }
 
 impl IntoResponse for ApiError {
     fn into_response(self) -> Response {
         let status = match self {
             ApiError::NotFound { .. } => StatusCode::NOT_FOUND,
+            ApiError::Unauthorized { .. } => StatusCode::UNAUTHORIZED,
+            ApiError::Forbidden { .. } => StatusCode::FORBIDDEN,
             ApiError::Internal { .. } => StatusCode::INTERNAL_SERVER_ERROR,
         };
 
@@ -54,6 +70,14 @@ impl utoipa::IntoResponses for ApiError {
             .description("Resource not found")
             .content("application/json", content.clone())
             .build();
+        let unauthorized = ResponseBuilder::new()
+            .description("Authentication required")
+            .content("application/json", content.clone())
+            .build();
+        let forbidden = ResponseBuilder::new()
+            .description("Forbidden")
+            .content("application/json", content.clone())
+            .build();
         let internal = ResponseBuilder::new()
             .description("Internal server error")
             .content("application/json", content)
@@ -61,6 +85,8 @@ impl utoipa::IntoResponses for ApiError {
 
         std::collections::BTreeMap::from([
             ("404".to_string(), RefOr::T(not_found)),
+            ("401".to_string(), RefOr::T(unauthorized)),
+            ("403".to_string(), RefOr::T(forbidden)),
             ("500".to_string(), RefOr::T(internal)),
         ])
     }

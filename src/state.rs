@@ -1,6 +1,6 @@
 use std::sync::Arc;
 
-use crate::{deployments::DeploymentService, runtime::BotRuntime};
+use crate::{auth::AuthService, deployments::DeploymentService, runtime::BotRuntime};
 
 /// Shared application state injected into all HTTP handlers.
 #[derive(Clone)]
@@ -9,4 +9,6 @@ pub struct AppState {
     pub runtime: Arc<BotRuntime>,
     /// Service responsible for storing and caching deployment records.
     pub deployments: DeploymentService,
+    /// Authentication and session management.
+    pub auth: AuthService,
 }
