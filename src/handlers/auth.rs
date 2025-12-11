@@ -15,7 +15,7 @@ use crate::{
     auth::{AuthService, DiscordUser, SESSION_COOKIE, STATE_COOKIE, Session},
     handlers::{
         error::ApiError,
-        response::{ApiJson, ApiJsonWithCookies, ApiRedirect},
+        response::{ApiJson, ApiRedirect},
     },
     state::AppState,
 };
@@ -90,7 +90,7 @@ pub async fn login_handler(State(state): State<AppState>) -> Result<ApiRedirect,
     Ok(ApiRedirect { response })
 }
 
-/// Handle Discord OAuth callback, mint a session cookie, and return the user profile.
+/// Handle Discord OAuth callback, mint a session cookie, and redirect to the dashboard.
 #[utoipa::path(
     get,
     path = "/auth/callback",
@@ -99,16 +99,14 @@ pub async fn login_handler(State(state): State<AppState>) -> Result<ApiRedirect,
         ("code" = String, Query, description = "Discord authorization code"),
         ("state" = String, Query, description = "Opaque state value returned by Discord")
     ),
-    responses(
-        (status = 200, description = "Login succeeded", body = AuthResponse),
-        (status = 401, description = "Invalid or expired state", body = crate::handlers::error::ErrorResponse)
-    )
+    responses((status = 302, description = "Login succeeded, redirected to dashboard"),
+              (status = 401, description = "Invalid or expired state", body = crate::handlers::error::ErrorResponse))
 )]
 pub async fn callback_handler(
     State(state): State<AppState>,
     headers: HeaderMap,
     Query(query): Query<CallbackQuery>,
-) -> Result<ApiJsonWithCookies<AuthResponse>, ApiError> {
+) -> Result<ApiRedirect, ApiError> {
     let Some(state_cookie) = cookie_value(&headers, STATE_COOKIE) else {
         return Err(ApiError::unauthorized("missing oauth state"));
     };
@@ -133,13 +131,14 @@ pub async fn callback_handler(
     };
 
     let session_token = state.auth.store_session(session).await.map_err(ApiError::internal)?;
-    let mut removal = Cookie::build(STATE_COOKIE);
-    removal = removal.path("/").max_age(Duration::seconds(0));
+    let mut state_removal = Cookie::build(STATE_COOKIE);
+    state_removal = state_removal.path("/").max_age(Duration::seconds(0));
 
-    Ok(ApiJsonWithCookies {
-        payload: ApiJson(Json(AuthResponse { user: user.into() })),
-        cookies: vec![state.auth.build_session_cookie(&session_token), removal.build()],
-    })
+    let mut response = Redirect::to("/dashboard").into_response();
+    attach_cookie(&mut response, state.auth.build_session_cookie(&session_token));
+    attach_cookie(&mut response, state_removal.build());
+
+    Ok(ApiRedirect { response })
 }
 
 /// Return the currently authenticated user.
