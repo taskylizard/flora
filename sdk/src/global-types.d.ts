@@ -3,6 +3,8 @@ declare global {
   type MessageUpdateContext = import('./index').MessageUpdateContext
   type MessageDeleteContext = import('./index').MessageDeleteContext
   type MessageDeleteBulkContext = import('./index').MessageDeleteBulkContext
+  type InteractionContext = import('./index').InteractionContext
+  type SlashCommand = import('./index').SlashCommand
   type Command = import('./index').Command
 
   function on(
@@ -21,9 +23,14 @@ declare global {
     event: 'messageDeleteBulk',
     handler: (ctx: MessageDeleteBulkContext) => void | Promise<void>
   ): void
+  function on(
+    event: 'interactionCreate',
+    handler: (ctx: InteractionContext) => void | Promise<void>
+  ): void
 
   const createBot: typeof import('./index').createBot
   const defineCommand: typeof import('./index').defineCommand
+  const defineSlashCommand: typeof import('./index').defineSlashCommand
 }
 
 export {}
