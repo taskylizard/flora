@@ -12,6 +12,7 @@ export default defineConfig(({ mode }) => {
     resolve: {
       alias: {
         "@": path.resolve(__dirname, "./src"),
+        "monaco-themes/themes/themelist.json": path.resolve(__dirname, "node_modules/monaco-themes/themes/themelist.json"),
       },
     },
 
