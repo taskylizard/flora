@@ -114,10 +114,13 @@ async fn main() -> Result<()> {
 
     let intents = GatewayIntents::all();
 
+    let bot_guilds = Arc::new(std::sync::RwLock::new(Vec::new()));
+
     let handler = DiscordHandler {
         runtime: runtime.clone(),
         http: http.clone(),
         application_id: Arc::new(std::sync::RwLock::new(Some(app_info.id))),
+        bot_guilds: bot_guilds.clone(),
     };
 
     let mut client = Client::builder(&token, intents).event_handler(handler).await?;
@@ -128,6 +131,7 @@ async fn main() -> Result<()> {
         auth: auth_service.clone(),
         tokens: token_service.clone(),
         http: http.clone(),
+        bot_guilds,
     };
 
     let api_router = create_router().with_state(api_state);

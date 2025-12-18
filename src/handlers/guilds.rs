@@ -48,15 +48,31 @@ pub async fn list_guilds_handler(
     let access_token = identity
         .access_token
         .ok_or_else(|| ApiError::forbidden("user session required for guild listing"))?;
-    let guilds =
-        state.auth.fetch_user_guilds(&access_token).await.map_err(|err| ApiError::internal(err))?;
+
+    let bot_guilds = {
+        let guilds = state.bot_guilds.read().unwrap();
+        guilds.clone()
+    };
 
     let mut allowed = Vec::new();
-    for guild in guilds {
-        let perms = guild
-            .permissions_new
+    for guild_id in bot_guilds {
+        let guild_id_str = guild_id.get().to_string();
+
+        let member = match state.auth.fetch_guild_member(&guild_id_str, &access_token).await {
+            Ok(Some(member)) => member,
+            Ok(None) => {
+                tracing::debug!(guild_id = %guild_id_str, "user is not a member of this guild");
+                continue;
+            }
+            Err(err) => {
+                tracing::warn!(guild_id = %guild_id_str, "failed to fetch guild membership: {}", err);
+                continue;
+            }
+        };
+
+        let perms = member
+            .permissions
             .as_deref()
-            .or(guild.permissions.as_deref())
             .and_then(|p| p.parse::<u64>().ok())
             .unwrap_or_default();
 
@@ -64,25 +80,17 @@ pub async fn list_guilds_handler(
             continue;
         }
 
-        let guild_id_u64: u64 = match guild.id.parse() {
-            Ok(id) => id,
-            Err(err) => {
-                tracing::warn!(guild_id = %guild.id, "failed to parse guild ID: {}", err);
-                continue;
-            }
-        };
-
-        match state.http.get_guild(guild_id_u64.into()).await {
-            Ok(_) => {
+        match state.http.get_guild(guild_id.into()).await {
+            Ok(guild) => {
                 allowed.push(GuildResponse {
-                    id: guild.id,
+                    id: guild_id_str,
                     name: guild.name,
-                    icon: guild.icon,
+                    icon: guild.icon.map(|i| i.to_string()),
                     permissions: perms,
                 });
             }
             Err(err) => {
-                tracing::debug!(guild_id = %guild.id, guild_name = %guild.name, "bot not in guild or failed to fetch: {}", err);
+                tracing::debug!(guild_id = %guild_id_str, "failed to fetch guild details: {}", err);
             }
         }
     }

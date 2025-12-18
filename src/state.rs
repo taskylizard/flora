@@ -1,9 +1,9 @@
-use std::sync::Arc;
+use std::sync::{Arc, RwLock};
 
 use crate::{
     auth::AuthService, deployments::DeploymentService, runtime::BotRuntime, tokens::TokenService,
 };
-use serenity::http::Http;
+use serenity::{http::Http, model::id::GuildId};
 
 /// Shared application state injected into all HTTP handlers.
 #[derive(Clone)]
@@ -18,4 +18,6 @@ pub struct AppState {
     pub tokens: TokenService,
     /// Bot HTTP client for guild permission checks.
     pub http: Arc<Http>,
+    /// Guilds the bot is currently a member of (updated on ready event).
+    pub bot_guilds: Arc<RwLock<Vec<GuildId>>>,
 }
