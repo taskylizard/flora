@@ -25,7 +25,9 @@ pub fn create_router(state: AppState) -> Router {
         ),
         tags(
             (name = "oakmoss", description = "Oakmoss bot runtime API")
-        )
+        ),
+        // Advertise that the actual HTTP base is /api so generated clients hit the right URLs.
+        servers((url = "/api", description = "API base path"))
     )]
     struct ApiDoc;
 
@@ -42,8 +44,7 @@ pub fn create_router(state: AppState) -> Router {
 
     Router::new()
         .nest("/api-docs", oapi_router)
-        // keep the old base paths available while also exposing `/api/*`
-        .nest("/api", api_router.clone())
-        .merge(api_router)
+        // Expose API only under `/api/*`
+        .nest("/api", api_router)
         .with_state(state)
 }
