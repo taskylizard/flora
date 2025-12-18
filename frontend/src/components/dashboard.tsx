@@ -356,7 +356,10 @@ export function Dashboard() {
             </div>
         )}
 
-        <div className="flex-1 overflow-y-auto p-4 md:p-6 lg:p-8">
+        <div className={cn(
+          "flex-1 p-4 md:p-6 lg:p-8",
+          activeTab === 'editor' ? "flex flex-col overflow-hidden" : "overflow-y-auto"
+        )}>
           {!selectedGuild ? (
             <div className="flex h-full flex-col items-center justify-center text-center animate-in fade-in zoom-in-95 duration-500">
               <div className="rounded-full bg-primary/10 p-6 mb-4">
@@ -368,7 +371,10 @@ export function Dashboard() {
               </p>
             </div>
           ) : (
-            <div className="mx-auto max-w-6xl space-y-6 animate-in fade-in slide-in-from-bottom-4 duration-500">
+            <div className={cn(
+              "mx-auto w-full animate-in fade-in slide-in-from-bottom-4 duration-500",
+              activeTab === 'editor' ? "flex-1 flex flex-col min-h-0 max-w-6xl" : "max-w-6xl space-y-6"
+            )}>
               
               {activeTab === 'overview' && (
                 <div className="grid gap-6">
@@ -432,8 +438,8 @@ export function Dashboard() {
               )}
 
               {activeTab === 'editor' && (
-                <div className="grid gap-6 h-[calc(100vh-14rem)] grid-rows-[auto_1fr]">
-                   <Card className="flex flex-col h-full overflow-hidden border-border/60 shadow-md">
+                <div className="flex flex-col flex-1 min-h-0 gap-6">
+                   <Card className="flex-1 flex flex-col min-h-0 overflow-hidden border-border/60 shadow-md">
                       <div className="flex items-center justify-between border-b px-4 py-2 bg-muted/30">
                          <div className="flex items-center gap-3">
                             <Terminal className="h-4 w-4 text-muted-foreground" />
