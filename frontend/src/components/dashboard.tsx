@@ -18,14 +18,26 @@ import {
 import { formatDistanceToNow } from "date-fns"
 import {
   LayoutDashboard,
-  Braces,
-  ShieldCheck,
+  Code2,
+  History,
+  Settings,
   Shield,
-  UploadCloud,
   LogOut,
-  RefreshCw,
   Moon,
   Sun,
+  Menu,
+  ChevronRight,
+  Play,
+  Terminal,
+  Clock,
+  CheckCircle2,
+  XCircle,
+  Plus,
+  Trash2,
+  Copy,
+  Server,
+  Activity,
+  Box
 } from "lucide-react"
 import { Button } from "@/components/ui/button"
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
@@ -51,6 +63,8 @@ type LoadState<T> = {
 
 const initialState = { data: null, loading: true, error: null }
 
+type Tab = "overview" | "editor" | "deployments" | "settings"
+
 export function Dashboard() {
   const [session, setSession] = useState<AuthUser | null>(null)
   const [sessionError, setSessionError] = useState<string | null>(null)
@@ -60,18 +74,20 @@ export function Dashboard() {
   const [tokens, setTokens] = useState<LoadState<Token[]>>({ ...initialState })
 
   const [selectedGuild, setSelectedGuild] = useState<string>("")
+  const [activeTab, setActiveTab] = useState<Tab>("overview")
+  const [sidebarOpen, setSidebarOpen] = useState(false)
+  
   const [language, setLanguage] = useState<Language>("typescript")
-  const [code, setCode] = useState<string>("// Write your guild bot here\nexport default async function main(ctx) {\n  ctx.reply('Hello from Oakmoss!')\n}\n")
-  const [saveStatus, setSaveStatus] = useState<"idle" | "saving" | "saved" | "error">(
-    "idle"
-  )
+  const [code, setCode] = useState<string>("")
+  const [saveStatus, setSaveStatus] = useState<"idle" | "saving" | "saved" | "error">("idle")
   const [saveError, setSaveError] = useState<string | null>(null)
   const [isCodeLoading, setIsCodeLoading] = useState(false)
+
   const [newToken, setNewToken] = useState<string | null>(null)
   const [tokenLabel, setTokenLabel] = useState<string>("")
+
   const { theme, toggleTheme } = useTheme()
 
-  // bootstrap session
   useEffect(() => {
     let mounted = true
     fetchSession()
@@ -93,7 +109,6 @@ export function Dashboard() {
     }
   }, [])
 
-  // load lists once session is ready
   useEffect(() => {
     if (!session) return
 
@@ -119,7 +134,6 @@ export function Dashboard() {
       .catch((err) => setTokens({ data: null, loading: false, error: err.message }))
   }, [session])
 
-  // when user switches guild, load latest deployment code and meta
   useEffect(() => {
     if (!selectedGuild) return
 
@@ -130,25 +144,17 @@ export function Dashboard() {
         if (dep.source) {
           setCode(dep.source)
         } else {
-          setCode(
-            "// Write your guild bot here\nexport default async function main(ctx) {\n  ctx.reply('Hello from Oakmoss!')\n}\n"
-          )
+          setCode(getDefaultCode())
         }
       })
       .catch(() => {
-        setCode(
-          "// Write your guild bot here\nexport default async function main(ctx) {\n  ctx.reply('Hello from Oakmoss!')\n}\n"
-        )
+        setCode(getDefaultCode())
       })
       .finally(() => setIsCodeLoading(false))
   }, [selectedGuild])
 
-  const selectedGuildInfo = useMemo(
-    () => guilds.data?.find((g) => g.id === selectedGuild),
-    [guilds.data, selectedGuild]
-  )
-
-  const deploymentRows = deployments.data ?? []
+  const getDefaultCode = () => 
+    "// Write your guild bot here\nexport default async function main(ctx) {\n  ctx.reply('Hello from Oakmoss!')\n}\n"
 
   const handleSave = async () => {
     if (!selectedGuild) return
@@ -157,7 +163,6 @@ export function Dashboard() {
     try {
       await saveDeployment(selectedGuild, { code, language })
       setSaveStatus("saved")
-      // refresh deployments list for updated timestamps
       const refreshed = await fetchDeployments()
       setDeployments({ data: refreshed, loading: false, error: null })
       setTimeout(() => setSaveStatus("idle"), 2000)
@@ -186,10 +191,16 @@ export function Dashboard() {
     setTokens({ data: refreshed, loading: false, error: null })
   }
 
+  const selectedGuildInfo = useMemo(
+    () => guilds.data?.find((g) => g.id === selectedGuild),
+    [guilds.data, selectedGuild]
+  )
+
   if (sessionError) {
     return (
       <FullScreenMessage
-        title="API unreachable"
+        icon={XCircle}
+        title="Connection Failed"
         description={sessionError}
         actionLabel="Retry"
         onAction={() => window.location.reload()}
@@ -200,8 +211,9 @@ export function Dashboard() {
   if (!session) {
     return (
       <FullScreenMessage
+        icon={LayoutDashboard}
         title="Welcome to Oakmoss"
-        description="Sign in with Discord to manage guild deployments and tokens."
+        description="Sign in with Discord to manage your guild deployments."
         actionLabel="Sign in with Discord"
         onAction={redirectToLogin}
       />
@@ -209,272 +221,461 @@ export function Dashboard() {
   }
 
   return (
-    <AppShell
-      user={session}
-      onLogout={redirectToLogin}
-      theme={theme}
-      onToggleTheme={toggleTheme}
-    >
-      <div className="grid gap-6 lg:grid-cols-[320px_1fr] xl:grid-cols-[360px_1fr]">
-        <Panel>
-          <CardHeader className="pb-2">
-            <CardTitle className="text-lg">Your guilds</CardTitle>
-            <CardDescription>Pick a guild to deploy your bot</CardDescription>
-          </CardHeader>
-          <CardContent className="space-y-3">
-            {guilds.loading && <Skeleton className="h-10 w-full" />}
-            {guilds.error && <InlineAlert message={guilds.error} />}
-            {!guilds.loading && !guilds.data?.length && (
-              <EmptyState
-                icon={Shield}
-                title="No admin guilds yet"
-                description="Invite the bot to a guild where you have admin permissions."
-              />
-            )}
-            {guilds.data?.map((guild) => (
-              <button
-                key={guild.id}
-                onClick={() => setSelectedGuild(guild.id)}
-                className={cn(
-                  "w-full rounded-lg border p-3 text-left transition hover:border-primary hover:bg-primary/5",
-                  selectedGuild === guild.id && "border-primary bg-primary/5"
-                )}
-              >
-                <div className="flex items-center gap-3">
-                  <Avatar name={guild.name} />
-                  <div className="flex flex-col">
-                    <span className="font-medium">{guild.name}</span>
-                    <span className="text-muted-foreground text-sm">{guild.id}</span>
-                  </div>
-                </div>
-              </button>
-            ))}
-          </CardContent>
-        </Panel>
+    <div className="flex h-screen w-full bg-background text-foreground overflow-hidden font-sans">
+      {sidebarOpen && (
+        <div 
+          className="fixed inset-0 z-40 bg-black/50 lg:hidden backdrop-blur-sm"
+          onClick={() => setSidebarOpen(false)}
+        />
+      )}
 
-        <div className="space-y-6">
-          <div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-3">
-            <MetricCard
-              icon={Braces}
-              label="Deployments"
-              value={deploymentRows.length.toString()}
-              helper="Managed guilds"
-            />
-            <MetricCard
-              icon={ShieldCheck}
-              label="API tokens"
-              value={tokens.data?.length?.toString() || "0"}
-              helper="Use for CLI access"
-            />
+      <aside className={cn(
+        "fixed inset-y-0 left-0 z-50 flex w-72 flex-col border-r bg-sidebar text-sidebar-foreground transition-transform duration-300 lg:relative lg:translate-x-0",
+        sidebarOpen ? "translate-x-0" : "-translate-x-full"
+      )}>
+        <div className="flex h-16 items-center gap-2 border-b px-6">
+          <div className="flex h-8 w-8 items-center justify-center rounded-lg bg-primary text-primary-foreground font-bold">
+            OM
           </div>
-
-          <Panel>
-            <CardHeader className="pb-3">
-              <div className="flex items-center justify-between gap-4">
-                <div>
-                  <CardTitle className="text-lg">Deploy code</CardTitle>
-                  <CardDescription>
-                    Ship your script to the selected guild. Existing code is not returned by the API,
-                    so paste the full source you want to run.
-                  </CardDescription>
-                </div>
-                <Badge variant="secondary" className="uppercase">
-                  {selectedGuildInfo ? selectedGuildInfo.name : "Select a guild"}
-                </Badge>
-              </div>
-            </CardHeader>
-            <CardContent className="space-y-3">
-              <div className="grid gap-3 sm:grid-cols-[180px_1fr]">
-                <Select value={language} onValueChange={(v) => setLanguage(v as Language)}>
-                  <SelectTrigger>
-                    <SelectValue />
-                  </SelectTrigger>
-                  <SelectContent>
-                    <SelectItem value="typescript">TypeScript</SelectItem>
-                    <SelectItem value="javascript">JavaScript</SelectItem>
-                  </SelectContent>
-                </Select>
-                <Textarea
-                  value={code}
-                  onChange={(e) => setCode(e.target.value)}
-                  rows={12}
-                  className={cn("font-mono text-sm", isCodeLoading && "opacity-50")}
-                  placeholder={isCodeLoading ? "Loading..." : "// paste bot code"}
-                  disabled={!selectedGuild || isCodeLoading}
-                />
-              </div>
-              <div className="flex flex-wrap items-center gap-3">
-                <Button onClick={handleSave} disabled={!selectedGuild || saveStatus === "saving"}>
-                  {saveStatus === "saving" && (
-                    <RefreshCw className="mr-2 h-4 w-4 animate-spin" />
-                  )}
-                  <UploadCloud className="mr-2 h-4 w-4" />
-                  Deploy to guild
-                </Button>
-                {saveStatus === "saved" && <Badge variant="secondary">Saved</Badge>}
-                {saveStatus === "error" && saveError && <InlineAlert message={saveError} />}
-              </div>
-            </CardContent>
-          </Panel>
-
-          <Panel>
-            <CardHeader className="pb-3">
-              <CardTitle className="text-lg">Deployment history</CardTitle>
-              <CardDescription>Latest entries from the API</CardDescription>
-            </CardHeader>
-            <CardContent className="space-y-2">
-              {deployments.loading && <Skeleton className="h-10 w-full" />}
-              {deployments.error && <InlineAlert message={deployments.error} />}
-              {!deployments.loading && !deploymentRows.length && (
-                <EmptyState
-                  icon={Braces}
-                  title="No deployments yet"
-                  description="Save your first script to see it here."
-                />
-              )}
-              {!!deploymentRows.length && (
-                <div className="grid gap-2 text-sm">
-                  {deploymentRows.map((dep) => (
-                    <div
-                      key={dep.guild_id}
-                      className="flex flex-wrap items-center justify-between gap-3 rounded-lg border bg-card px-4 py-3"
-                    >
-                      <div>
-                        <div className="font-medium">{dep.guild_id}</div>
-                        <div className="text-muted-foreground">Updated {formatTimeAgo(dep.updated_at)}</div>
-                      </div>
-                      <Badge>{dep.language}</Badge>
-                    </div>
-                  ))}
-                </div>
-              )}
-            </CardContent>
-          </Panel>
-
-          <Panel>
-            <CardHeader className="pb-3">
-              <CardTitle className="text-lg">API tokens</CardTitle>
-              <CardDescription>Mint tokens for CLI or automation</CardDescription>
-            </CardHeader>
-            <CardContent className="space-y-4">
-              <div className="flex flex-col gap-3 sm:flex-row sm:items-center">
-                <Input
-                  placeholder="Label (optional)"
-                  value={tokenLabel}
-                  onChange={(e) => setTokenLabel(e.target.value)}
-                  className="sm:max-w-xs"
-                />
-                <Button onClick={handleCreateToken} className="w-full sm:w-auto">
-                  <ShieldCheck className="mr-2 h-4 w-4" />
-                  Create token
-                </Button>
-              </div>
-              {newToken && (
-                <div className="rounded-lg border bg-muted/40 p-3 text-sm font-mono">
-                  {newToken}
-                  <div className="text-muted-foreground mt-1 text-xs">Copy now; it will not be shown again.</div>
-                </div>
-              )}
-              {tokens.loading && <Skeleton className="h-10 w-full" />}
-              {tokens.error && <InlineAlert message={tokens.error} />}
-              {!tokens.loading && !tokens.data?.length && (
-                <EmptyState
-                  icon={Shield}
-                  title="No tokens yet"
-                  description="Create a token to authenticate external tools."
-                />
-              )}
-              {!!tokens.data?.length && (
-                <div className="space-y-2 text-sm">
-                  {tokens.data.map((tok) => (
-                    <div
-                      key={tok.token_id}
-                      className="flex flex-wrap items-center justify-between gap-3 rounded-lg border bg-card px-4 py-3"
-                    >
-                      <div>
-                        <div className="font-medium">{tok.label || "Unlabeled"}</div>
-                        <div className="text-muted-foreground">
-                          Created {formatTimeAgo(tok.created_at)} • Last used {formatTimeAgo(tok.last_used_at)}
-                        </div>
-                      </div>
-                      <Button variant="ghost" size="sm" onClick={() => handleDeleteToken(tok.token_id)}>
-                        Revoke
-                      </Button>
-                    </div>
-                  ))}
-                </div>
-              )}
-            </CardContent>
-          </Panel>
+          <div className="font-semibold tracking-tight">Oakmoss</div>
         </div>
-      </div>
-    </AppShell>
-  )
-}
 
-function AppShell({
-  user,
-  onLogout,
-  children,
-  theme,
-  onToggleTheme,
-}: {
-  user: AuthUser
-  onLogout: () => void
-  children: React.ReactNode
-  theme: "light" | "dark"
-  onToggleTheme: () => void
-}) {
-  return (
-    <div className="bg-background text-foreground min-h-screen">
-      <header className="border-border/60 bg-card/60 sticky top-0 z-20 border-b backdrop-blur">
-        <div className="mx-auto flex max-w-6xl items-center justify-between gap-4 px-4 py-3">
-          <div className="flex items-center gap-3">
-            <div className="flex h-10 w-10 items-center justify-center rounded-lg bg-primary/10 text-primary">
-              <LayoutDashboard className="h-5 w-5" />
+        <div className="flex-1 overflow-y-auto py-4 px-3 space-y-1">
+          <div className="px-3 mb-2 text-xs font-semibold text-muted-foreground uppercase tracking-wider">
+            Your Guilds
+          </div>
+          
+          {guilds.loading && (
+            <div className="px-3 space-y-2">
+              <Skeleton className="h-9 w-full" />
+              <Skeleton className="h-9 w-full" />
+              <Skeleton className="h-9 w-full" />
             </div>
-            <div>
-              <div className="font-semibold">Oakmoss Console</div>
-              <div className="text-muted-foreground text-sm">Guild runtime & tokens</div>
+          )}
+
+          {!guilds.loading && guilds.data?.length === 0 && (
+             <div className="px-3 py-4 text-center border-2 border-dashed rounded-lg">
+                <Shield className="h-5 w-5 mx-auto text-muted-foreground mb-2" />
+                <p className="text-xs text-muted-foreground">No admin guilds found</p>
+             </div>
+          )}
+
+          {guilds.data?.map((guild) => (
+            <button
+              key={guild.id}
+              onClick={() => {
+                setSelectedGuild(guild.id)
+                if (window.innerWidth < 1024) setSidebarOpen(false)
+              }}
+              className={cn(
+                "group flex w-full items-center gap-3 rounded-md px-3 py-2 text-sm font-medium transition-colors",
+                selectedGuild === guild.id 
+                  ? "bg-sidebar-primary text-sidebar-primary-foreground shadow-sm" 
+                  : "hover:bg-sidebar-accent hover:text-sidebar-accent-foreground text-muted-foreground"
+              )}
+            >
+              <Avatar 
+                name={guild.name} 
+                guildId={guild.id}
+                iconHash={guild.icon}
+                className={cn("h-6 w-6 text-[10px]", selectedGuild === guild.id ? "bg-sidebar-primary-foreground/20 text-sidebar-primary-foreground" : "bg-muted")} 
+              />
+              <span className="truncate">{guild.name}</span>
+              {selectedGuild === guild.id && <ChevronRight className="ml-auto h-4 w-4 opacity-50" />}
+            </button>
+          ))}
+        </div>
+
+        <div className="border-t p-4">
+          <div className="flex items-center gap-3 rounded-lg border bg-sidebar-accent/50 p-3 shadow-sm">
+            <Avatar 
+              name={session.global_name || session.username} 
+              userId={session.id}
+              avatarHash={session.avatar}
+              className="h-8 w-8" 
+            />
+            <div className="flex-1 min-w-0">
+              <p className="truncate text-sm font-medium">{session.global_name || session.username}</p>
+              <button onClick={redirectToLogin} className="flex items-center gap-1 text-xs text-muted-foreground hover:text-foreground transition-colors">
+                <LogOut className="h-3 w-3" />
+                Sign out
+              </button>
             </div>
           </div>
+        </div>
+      </aside>
+
+      <main className="flex min-w-0 flex-1 flex-col bg-background">
+        <header className="sticky top-0 z-30 flex h-16 items-center gap-4 border-b bg-background/95 px-6 backdrop-blur supports-[backdrop-filter]:bg-background/60">
+          <Button variant="ghost" size="icon" className="lg:hidden -ml-2" onClick={() => setSidebarOpen(true)}>
+            <Menu className="h-5 w-5" />
+          </Button>
+
           <div className="flex items-center gap-2">
-            <Button variant="ghost" size="icon" onClick={onToggleTheme}>
-              <span className="sr-only">Toggle theme</span>
+            <span className="text-muted-foreground hidden sm:inline-block">/</span>
+            <span className="font-medium">
+              {selectedGuildInfo ? selectedGuildInfo.name : "Select a Guild"}
+            </span>
+          </div>
+
+          <div className="ml-auto flex items-center gap-2">
+            <Button variant="ghost" size="icon" onClick={toggleTheme}>
               {theme === "dark" ? <Moon className="h-4 w-4" /> : <Sun className="h-4 w-4" />}
             </Button>
-            <div className="flex items-center gap-2 rounded-full border px-3 py-1">
-              <Avatar name={user.global_name || user.username} />
-              <div className="leading-tight">
-                <div className="text-sm font-medium">{user.global_name || user.username}</div>
-                <div className="text-muted-foreground text-xs">{user.id}</div>
-              </div>
-            </div>
-            <Button variant="ghost" size="icon" onClick={onLogout}>
-              <LogOut className="h-4 w-4" />
-            </Button>
           </div>
+        </header>
+
+        {selectedGuild && (
+            <div className="border-b px-6 bg-muted/20">
+              <nav className="flex items-center gap-6 overflow-x-auto">
+                <TabButton 
+                  active={activeTab === 'overview'} 
+                  onClick={() => setActiveTab('overview')} 
+                  icon={LayoutDashboard} 
+                  label="Overview" 
+                />
+                <TabButton 
+                  active={activeTab === 'editor'} 
+                  onClick={() => setActiveTab('editor')} 
+                  icon={Code2} 
+                  label="Editor" 
+                />
+                <TabButton 
+                  active={activeTab === 'deployments'} 
+                  onClick={() => setActiveTab('deployments')} 
+                  icon={History} 
+                  label="Deployments" 
+                />
+                <TabButton 
+                  active={activeTab === 'settings'} 
+                  onClick={() => setActiveTab('settings')} 
+                  icon={Settings} 
+                  label="Settings" 
+                />
+              </nav>
+            </div>
+        )}
+
+        <div className="flex-1 overflow-y-auto p-4 md:p-6 lg:p-8">
+          {!selectedGuild ? (
+            <div className="flex h-full flex-col items-center justify-center text-center animate-in fade-in zoom-in-95 duration-500">
+              <div className="rounded-full bg-primary/10 p-6 mb-4">
+                <Server className="h-10 w-10 text-primary" />
+              </div>
+              <h2 className="text-2xl font-bold tracking-tight">No Guild Selected</h2>
+              <p className="text-muted-foreground mt-2 max-w-sm">
+                Select a guild from the sidebar to manage its bot deployment, view history, or configure settings.
+              </p>
+            </div>
+          ) : (
+            <div className="mx-auto max-w-6xl space-y-6 animate-in fade-in slide-in-from-bottom-4 duration-500">
+              
+              {activeTab === 'overview' && (
+                <div className="grid gap-6">
+                  <div className="grid gap-4 md:grid-cols-3">
+                    <MetricCard 
+                       icon={Activity} 
+                       label="Total Deployments" 
+                       value={deployments.data?.length.toString() || "0"} 
+                       description="Across all guilds"
+                    />
+                    <MetricCard 
+                       icon={Box} 
+                       label="Current Language" 
+                       value={language === 'typescript' ? 'TS' : 'JS'} 
+                       description={language}
+                    />
+                    <MetricCard 
+                       icon={Clock} 
+                       label="Last Updated" 
+                       value={deployments.data?.find(d => d.guild_id === selectedGuild)?.updated_at ? formatTimeAgo(deployments.data.find(d => d.guild_id === selectedGuild)?.updated_at) : "Never"} 
+                       description="Deployment age"
+                    />
+                  </div>
+
+                  <div className="grid gap-6 md:grid-cols-2">
+                    <Card>
+                        <CardHeader>
+                            <CardTitle>Quick Actions</CardTitle>
+                            <CardDescription>Common tasks for {selectedGuildInfo?.name}</CardDescription>
+                        </CardHeader>
+                        <CardContent className="space-y-2">
+                            <Button className="w-full justify-start" onClick={() => setActiveTab('editor')}>
+                                <Code2 className="mr-2 h-4 w-4" />
+                                Edit & Deploy Code
+                            </Button>
+                            <Button variant="outline" className="w-full justify-start" onClick={() => setActiveTab('deployments')}>
+                                <History className="mr-2 h-4 w-4" />
+                                View Deployment History
+                            </Button>
+                        </CardContent>
+                    </Card>
+
+                    <Card>
+                        <CardHeader>
+                            <CardTitle>System Status</CardTitle>
+                            <CardDescription>Runtime Environment</CardDescription>
+                        </CardHeader>
+                        <CardContent className="space-y-4">
+                             <div className="flex items-center justify-between">
+                                <span className="text-sm text-muted-foreground">API Connection</span>
+                                <Badge variant="outline" className="text-green-600 border-green-200 bg-green-50 dark:bg-green-900/20 dark:border-green-900">Online</Badge>
+                             </div>
+                             <div className="flex items-center justify-between">
+                                <span className="text-sm text-muted-foreground">Runtime Version</span>
+                                <span className="text-sm font-mono">v1.0.0-alpha</span>
+                             </div>
+                        </CardContent>
+                    </Card>
+                  </div>
+                </div>
+              )}
+
+              {activeTab === 'editor' && (
+                <div className="grid gap-6 h-[calc(100vh-14rem)] grid-rows-[auto_1fr]">
+                   <Card className="flex flex-col h-full overflow-hidden border-border/60 shadow-md">
+                      <div className="flex items-center justify-between border-b px-4 py-2 bg-muted/30">
+                         <div className="flex items-center gap-3">
+                            <Terminal className="h-4 w-4 text-muted-foreground" />
+                            <Select value={language} onValueChange={(v) => setLanguage(v as Language)}>
+                                <SelectTrigger className="h-8 w-[140px] bg-background border-border/50">
+                                    <SelectValue />
+                                </SelectTrigger>
+                                <SelectContent>
+                                    <SelectItem value="typescript">TypeScript</SelectItem>
+                                    <SelectItem value="javascript">JavaScript</SelectItem>
+                                </SelectContent>
+                            </Select>
+                         </div>
+                         <div className="flex items-center gap-2">
+                            {saveStatus === "error" && saveError && (
+                                <span className="text-xs text-destructive flex items-center gap-1 animate-in fade-in">
+                                    <XCircle className="h-3 w-3" /> {saveError}
+                                </span>
+                            )}
+                            {saveStatus === "saved" && (
+                                <span className="text-xs text-green-600 flex items-center gap-1 animate-in fade-in">
+                                    <CheckCircle2 className="h-3 w-3" /> Saved
+                                </span>
+                            )}
+                            <Button 
+                                size="sm" 
+                                onClick={handleSave} 
+                                disabled={saveStatus === "saving" || isCodeLoading}
+                                className={cn("transition-all", saveStatus === "saved" ? "bg-green-600 hover:bg-green-700" : "")}
+                            >
+                                {saveStatus === "saving" ? (
+                                    <Clock className="mr-2 h-3 w-3 animate-spin" />
+                                ) : (
+                                    <Play className="mr-2 h-3 w-3 fill-current" />
+                                )}
+                                {saveStatus === "saved" ? "Deployed" : "Deploy"}
+                            </Button>
+                         </div>
+                      </div>
+                      <div className="relative flex-1 bg-zinc-950">
+                          {isCodeLoading && (
+                             <div className="absolute inset-0 z-10 flex items-center justify-center bg-background/50 backdrop-blur-sm">
+                                 <Clock className="h-8 w-8 animate-spin text-primary" />
+                             </div>
+                          )}
+                          <Textarea
+                            value={code}
+                            onChange={(e) => setCode(e.target.value)}
+                            className="h-full w-full resize-none rounded-none border-0 bg-transparent p-4 font-mono text-sm leading-relaxed text-zinc-50 focus-visible:ring-0"
+                            spellCheck={false}
+                            placeholder="// Start coding..."
+                          />
+                      </div>
+                   </Card>
+                   <div className="text-xs text-muted-foreground px-1">
+                      <span className="font-semibold">Tip:</span> The <code>main</code> function is the entry point for your bot. It receives a context object.
+                   </div>
+                </div>
+              )}
+
+              {activeTab === 'deployments' && (
+                <Card>
+                    <CardHeader>
+                        <CardTitle>Deployment History</CardTitle>
+                        <CardDescription>Recent updates to your guild bots.</CardDescription>
+                    </CardHeader>
+                    <CardContent>
+                        {!deployments.data?.length ? (
+                            <EmptyState 
+                                icon={History}
+                                title="No deployments"
+                                description="You haven't deployed any code yet."
+                            />
+                        ) : (
+                            <div className="space-y-4">
+                                {deployments.data.filter(d => d.guild_id === selectedGuild || !selectedGuild).map((dep) => (
+                                    <div key={dep.guild_id} className="flex items-center justify-between rounded-lg border p-4 transition-colors hover:bg-muted/50">
+                                        <div className="flex items-center gap-4">
+                                            <div className="rounded-full bg-primary/10 p-2 text-primary">
+                                                <Code2 className="h-4 w-4" />
+                                            </div>
+                                            <div>
+                                                <p className="font-medium text-sm">
+                                                    {guilds.data?.find(g => g.id === dep.guild_id)?.name || dep.guild_id}
+                                                </p>
+                                                <p className="text-xs text-muted-foreground">
+                                                    Deployed {formatTimeAgo(dep.updated_at)}
+                                                </p>
+                                            </div>
+                                        </div>
+                                        <div className="flex items-center gap-3">
+                                            <Badge variant="secondary" className="font-mono text-xs">
+                                                {dep.language}
+                                            </Badge>
+                                        </div>
+                                    </div>
+                                ))}
+                            </div>
+                        )}
+                    </CardContent>
+                </Card>
+              )}
+
+              {activeTab === 'settings' && (
+                <div className="space-y-6">
+                    <Card>
+                        <CardHeader>
+                            <CardTitle>API Tokens</CardTitle>
+                            <CardDescription>Manage access tokens for the CLI and external tools.</CardDescription>
+                        </CardHeader>
+                        <CardContent className="space-y-6">
+                            <div className="flex flex-col gap-4 sm:flex-row">
+                                <div className="flex-1">
+                                    <Input 
+                                        placeholder="Token Label (e.g. CI/CD Pipeline)" 
+                                        value={tokenLabel}
+                                        onChange={(e) => setTokenLabel(e.target.value)}
+                                    />
+                                </div>
+                                <Button onClick={handleCreateToken}>
+                                    <Plus className="mr-2 h-4 w-4" />
+                                    Generate Token
+                                </Button>
+                            </div>
+
+                            {newToken && (
+                                <div className="rounded-md border border-green-200 bg-green-50 p-4 dark:bg-green-900/20 dark:border-green-900">
+                                    <div className="flex items-center justify-between mb-2">
+                                        <h4 className="text-sm font-semibold text-green-800 dark:text-green-300">Token Generated</h4>
+                                        <Button 
+                                            variant="ghost" 
+                                            size="sm" 
+                                            className="h-6 text-green-700 hover:text-green-800 hover:bg-green-100 dark:text-green-400 dark:hover:bg-green-900/40"
+                                            onClick={() => navigator.clipboard.writeText(newToken)}
+                                        >
+                                            <Copy className="h-3 w-3 mr-1" /> Copy
+                                        </Button>
+                                    </div>
+                                    <code className="block w-full overflow-x-auto rounded bg-white p-2 font-mono text-xs text-green-900 border border-green-100 dark:bg-black/40 dark:text-green-100 dark:border-green-900/50">
+                                        {newToken}
+                                    </code>
+                                    <p className="mt-2 text-xs text-green-700 dark:text-green-400">
+                                        Make sure to copy this token now. You won't be able to see it again.
+                                    </p>
+                                </div>
+                            )}
+
+                            <div className="space-y-1">
+                                <h4 className="text-sm font-medium text-muted-foreground mb-3">Active Tokens</h4>
+                                {tokens.loading && <Skeleton className="h-12 w-full" />}
+                                {!tokens.loading && !tokens.data?.length && (
+                                    <EmptyState 
+                                        icon={Shield}
+                                        title="No active tokens"
+                                        description="Generate a token to get started with the CLI."
+                                    />
+                                )}
+                                {tokens.data?.map((token) => (
+                                    <div key={token.token_id} className="flex items-center justify-between rounded-md border p-3">
+                                        <div>
+                                            <div className="font-medium text-sm">{token.label || "Untitled Token"}</div>
+                                            <div className="text-xs text-muted-foreground">
+                                                Created {formatTimeAgo(token.created_at)} • Last used {formatTimeAgo(token.last_used_at)}
+                                            </div>
+                                        </div>
+                                        <Button 
+                                            variant="ghost" 
+                                            size="sm" 
+                                            onClick={() => handleDeleteToken(token.token_id)}
+                                            className="text-destructive hover:text-destructive hover:bg-destructive/10"
+                                        >
+                                            <Trash2 className="h-4 w-4" />
+                                        </Button>
+                                    </div>
+                                ))}
+                            </div>
+                        </CardContent>
+                    </Card>
+                </div>
+              )}
+            </div>
+          )}
         </div>
-      </header>
-      <main className="mx-auto max-w-6xl px-4 py-8">{children}</main>
+      </main>
     </div>
   )
 }
 
-function Panel({ children }: { children: React.ReactNode }) {
-  return (
-    <Card className="border-border/80 shadow-sm">
-      {children}
-    </Card>
-  )
+function TabButton({ 
+  active, 
+  onClick, 
+  icon: Icon, 
+  label 
+}: { 
+  active: boolean, 
+  onClick: () => void, 
+  icon: React.ComponentType<{ className?: string }>, 
+  label: string 
+}) {
+    return (
+        <button
+            onClick={onClick}
+            className={cn(
+                "flex items-center gap-2 border-b-2 py-4 text-sm font-medium transition-colors hover:text-primary",
+                active 
+                  ? "border-primary text-primary" 
+                  : "border-transparent text-muted-foreground"
+            )}
+        >
+            <Icon className="h-4 w-4" />
+            {label}
+        </button>
+    )
 }
 
-function InlineAlert({ message }: { message: string }) {
-  return (
-    <div className="text-destructive/90 rounded-md border border-destructive/30 bg-destructive/5 px-3 py-2 text-sm">
-      {message}
-    </div>
-  )
+function MetricCard({ 
+  icon: Icon, 
+  label, 
+  value, 
+  description 
+}: { 
+  icon: React.ComponentType<{ className?: string }>, 
+  label: string, 
+  value: string, 
+  description: string 
+}) {
+    return (
+        <Card className="overflow-hidden">
+            <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+                <CardTitle className="text-sm font-medium text-muted-foreground">
+                    {label}
+                </CardTitle>
+                <Icon className="h-4 w-4 text-muted-foreground" />
+            </CardHeader>
+            <CardContent>
+                <div className="text-2xl font-bold">{value}</div>
+                <p className="text-xs text-muted-foreground mt-1">
+                    {description}
+                </p>
+            </CardContent>
+        </Card>
+    )
 }
 
 function EmptyState({
@@ -487,51 +688,42 @@ function EmptyState({
   description: string
 }) {
   return (
-    <div className="flex flex-col items-start gap-2 rounded-lg border border-dashed px-4 py-6">
-      <Icon className="text-muted-foreground h-6 w-6" />
-      <div className="font-medium">{title}</div>
-      <div className="text-muted-foreground text-sm">{description}</div>
-    </div>
-  )
-}
-
-function MetricCard({ icon: Icon, label, value, helper }: { icon: React.ComponentType<{ className?: string }>; label: string; value: string; helper: string }) {
-  return (
-    <div className="rounded-xl border bg-card p-4 shadow-sm">
-      <div className="flex items-center justify-between">
-        <div className="text-muted-foreground text-sm">{label}</div>
-        <div className="rounded-lg bg-primary/10 p-2 text-primary">
-          <Icon className="h-4 w-4" />
-        </div>
+    <div className="flex flex-col items-center justify-center gap-2 rounded-lg border border-dashed py-8 text-center animate-in fade-in zoom-in-95">
+      <div className="rounded-full bg-muted p-3">
+        <Icon className="h-6 w-6 text-muted-foreground" />
       </div>
-      <div className="mt-2 text-2xl font-semibold">{value}</div>
-      <div className="text-muted-foreground text-xs">{helper}</div>
+      <div className="font-medium mt-2">{title}</div>
+      <div className="text-muted-foreground text-sm max-w-xs">{description}</div>
     </div>
   )
 }
 
 function FullScreenMessage({
+  icon: Icon,
   title,
   description,
   actionLabel,
   onAction,
 }: {
+  icon: React.ComponentType<{ className?: string }>
   title: string
   description: string
   actionLabel: string
   onAction: () => void
 }) {
   return (
-    <div className="bg-background text-foreground flex min-h-screen items-center justify-center px-6">
-      <div className="max-w-md space-y-4 text-center">
-        <div className="mx-auto flex h-12 w-12 items-center justify-center rounded-2xl bg-primary/10 text-primary">
-          <LayoutDashboard className="h-6 w-6" />
+    <div className="flex min-h-screen flex-col items-center justify-center bg-background p-4 text-foreground">
+      <div className="mx-auto flex max-w-[400px] flex-col items-center justify-center text-center space-y-6">
+        <div className="flex h-20 w-20 items-center justify-center rounded-3xl bg-primary/10 text-primary ring-8 ring-primary/5">
+          <Icon className="h-10 w-10" />
         </div>
-        <div className="text-2xl font-semibold">{title}</div>
-        <div className="text-muted-foreground">{description}</div>
-        <div className="flex justify-center">
-          <Button onClick={onAction}>{actionLabel}</Button>
+        <div className="space-y-2">
+            <h1 className="text-2xl font-bold tracking-tight">{title}</h1>
+            <p className="text-muted-foreground">{description}</p>
         </div>
+        <Button onClick={onAction} size="lg" className="w-full">
+          {actionLabel}
+        </Button>
       </div>
     </div>
   )
