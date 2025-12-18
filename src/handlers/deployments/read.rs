@@ -48,5 +48,6 @@ pub async fn get_deployment_handler(
     ensure_guild_admin(&state, &identity, &guild_id).await?;
     ensure_guild_admin(&state.auth, &session, &guild_id).await?;
 
-    Ok(ApiJson(Json(deployment.into())))
+    let response = DeploymentResponse::from(deployment.clone()).with_source(deployment.source);
+    Ok(ApiJson(Json(response)))
 }

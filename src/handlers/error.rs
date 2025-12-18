@@ -4,6 +4,7 @@ use axum::{
     response::{IntoResponse, Response},
 };
 use serde::Serialize;
+use tracing::error;
 use utoipa::openapi::{RefOr, content::ContentBuilder, response::ResponseBuilder};
 use utoipa::{PartialSchema, ToSchema};
 
@@ -62,7 +63,10 @@ impl IntoResponse for ApiError {
             ApiError::Unauthorized { .. } => StatusCode::UNAUTHORIZED,
             ApiError::Forbidden { .. } => StatusCode::FORBIDDEN,
             ApiError::BadRequest { .. } => StatusCode::BAD_REQUEST,
-            ApiError::Internal { .. } => StatusCode::INTERNAL_SERVER_ERROR,
+            ApiError::Internal { ref message } => {
+                error!(target: "oakmoss::handlers", "Internal API error: {}", message);
+                StatusCode::INTERNAL_SERVER_ERROR
+            }
         };
 
         let body = ErrorResponse { message: self.to_string() };

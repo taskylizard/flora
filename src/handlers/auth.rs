@@ -15,7 +15,7 @@ use crate::{
     auth::{AuthService, DiscordUser, SESSION_COOKIE, STATE_COOKIE, Session},
     handlers::{
         error::ApiError,
-        response::{ApiJson, ApiJsonWithCookies, ApiRedirect},
+        response::{ApiJson, ApiJsonWithCookies, ApiRedirect, ApiRedirectWithCookies},
     },
     state::AppState,
 };
@@ -90,7 +90,7 @@ pub async fn login_handler(State(state): State<AppState>) -> Result<ApiRedirect,
     Ok(ApiRedirect { response })
 }
 
-/// Handle Discord OAuth callback, mint a session cookie, and return the user profile.
+/// Handle Discord OAuth callback, mint a session cookie, and redirect to the frontend dashboard.
 #[utoipa::path(
     get,
     path = "/callback",
@@ -100,7 +100,7 @@ pub async fn login_handler(State(state): State<AppState>) -> Result<ApiRedirect,
         ("state" = String, Query, description = "Opaque state value returned by Discord")
     ),
     responses(
-        (status = 200, description = "Login succeeded", body = AuthResponse),
+        (status = 302, description = "Login succeeded, redirecting to dashboard"),
         (status = 401, description = "Invalid or expired state", body = crate::handlers::error::ErrorResponse)
     )
 )]
@@ -108,7 +108,7 @@ pub async fn callback_handler(
     State(state): State<AppState>,
     headers: HeaderMap,
     Query(query): Query<CallbackQuery>,
-) -> Result<ApiJsonWithCookies<AuthResponse>, ApiError> {
+) -> Result<ApiRedirectWithCookies, ApiError> {
     let Some(state_cookie) = cookie_value(&headers, STATE_COOKIE) else {
         return Err(ApiError::unauthorized("missing oauth state"));
     };
@@ -136,8 +136,9 @@ pub async fn callback_handler(
     let mut removal = Cookie::build(STATE_COOKIE);
     removal = removal.path("/").max_age(Duration::seconds(0));
 
-    Ok(ApiJsonWithCookies {
-        payload: ApiJson(Json(AuthResponse { user: user.into() })),
+    let redirect_response = Redirect::to("/").into_response();
+    Ok(ApiRedirectWithCookies {
+        response: redirect_response,
         cookies: vec![state.auth.build_session_cookie(&session_token), removal.build()],
     })
 }

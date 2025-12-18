@@ -17,6 +17,7 @@ export default defineConfig(({ mode }) => {
 
     ...(mode === 'development' && {
       server: {
+        allowedHosts: true,
         proxy: {
           '/api': {
             target: API_HOST,

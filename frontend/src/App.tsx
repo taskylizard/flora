@@ -1,7 +1,7 @@
-import { ComponentExample } from "@/components/component-example";
+import { Dashboard } from "@/components/dashboard";
 
 export function App() {
-return <ComponentExample />;
+  return <Dashboard />;
 }
 
 export default App;
