@@ -1,12 +1,19 @@
-import { LogOut } from "lucide-react"
+import { LogOut, Settings, ChevronsUpDown } from "lucide-react"
 import { Avatar } from "@/components/ui/avatar"
 import { cn } from "@/lib/utils"
 import { useApp } from "@/contexts/AppContext"
 import { redirectToLogin } from "@/lib/api"
 import { GuildList } from "@/components/features/GuildList"
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuTrigger,
+  DropdownMenuSeparator,
+} from "@/components/ui/dropdown-menu"
 
 export function Sidebar() {
-  const { session, sidebarOpen } = useApp()
+  const { session, sidebarOpen, setView } = useApp()
 
   if (!session) return null
 
@@ -15,7 +22,7 @@ export function Sidebar() {
         "fixed inset-y-0 left-0 z-50 flex w-72 flex-col border-r bg-sidebar text-sidebar-foreground transition-transform duration-300 lg:relative lg:translate-x-0",
         sidebarOpen ? "translate-x-0" : "-translate-x-full"
       )}>
-        <div className="flex h-16 items-center gap-2 border-b px-6">
+        <div className="flex h-16 items-center gap-2 border-b px-6 cursor-pointer" onClick={() => setView('guild')}>
           <div className="flex h-8 w-8 items-center justify-center rounded-lg bg-primary text-primary-foreground font-bold">
             OM
           </div>
@@ -30,16 +37,27 @@ export function Sidebar() {
         </div>
 
         <div className="border-t p-4">
-          <div className="flex items-center gap-3 rounded-lg border bg-sidebar-accent/50 p-3 shadow-sm">
-            <Avatar name={session.global_name || session.username} className="h-8 w-8" />
-            <div className="flex-1 min-w-0">
-              <p className="truncate text-sm font-medium">{session.global_name || session.username}</p>
-              <button onClick={redirectToLogin} className="flex items-center gap-1 text-xs text-muted-foreground hover:text-foreground transition-colors">
-                <LogOut className="h-3 w-3" />
-                Sign out
-              </button>
-            </div>
-          </div>
+          <DropdownMenu>
+            <DropdownMenuTrigger className="flex w-full items-center gap-3 rounded-lg border bg-sidebar-accent/50 p-3 shadow-sm hover:bg-sidebar-accent transition-colors outline-none text-left cursor-pointer">
+              <Avatar name={session.global_name || session.username} className="h-8 w-8" />
+              <div className="flex-1 min-w-0">
+                <p className="truncate text-sm font-medium">{session.global_name || session.username}</p>
+                <p className="truncate text-xs text-muted-foreground">Manage Account</p>
+              </div>
+              <ChevronsUpDown className="h-4 w-4 text-muted-foreground opacity-50" />
+            </DropdownMenuTrigger>
+            <DropdownMenuContent align="end" side="top" className="w-[220px]">
+              <DropdownMenuItem onClick={() => setView('user-settings')}>
+                <Settings className="mr-2 h-4 w-4" />
+                <span>Settings</span>
+              </DropdownMenuItem>
+              <DropdownMenuSeparator />
+              <DropdownMenuItem onClick={redirectToLogin} className="text-destructive focus:text-destructive">
+                <LogOut className="mr-2 h-4 w-4" />
+                <span>Sign out</span>
+              </DropdownMenuItem>
+            </DropdownMenuContent>
+          </DropdownMenu>
         </div>
       </aside>
   )

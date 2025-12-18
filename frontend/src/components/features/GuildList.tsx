@@ -5,7 +5,7 @@ import { cn } from "@/lib/utils"
 import { useApp } from "@/contexts/AppContext"
 
 export function GuildList() {
-  const { guilds, selectedGuild, setSelectedGuild, setSidebarOpen } = useApp()
+  const { guilds, selectedGuild, setSelectedGuild, setSidebarOpen, setView } = useApp()
 
   if (guilds.loading) {
     return (
@@ -33,6 +33,7 @@ export function GuildList() {
           key={guild.id}
           onClick={() => {
             setSelectedGuild(guild.id)
+            setView('guild')
             if (window.innerWidth < 1024) setSidebarOpen(false)
           }}
           className={cn(

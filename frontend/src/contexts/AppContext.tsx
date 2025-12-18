@@ -18,6 +18,8 @@ type LoadState<T> = {
 
 const initialState = { data: null, loading: true, error: null }
 
+export type AppView = "guild" | "user-settings"
+
 interface AppContextType {
   session: AuthUser | null
   sessionError: string | null
@@ -26,11 +28,13 @@ interface AppContextType {
   tokens: LoadState<Token[]>
   selectedGuild: string
   sidebarOpen: boolean
+  view: AppView
   
   setSession: (session: AuthUser | null) => void
   setSelectedGuild: (id: string) => void
   setSidebarOpen: (open: boolean) => void
   toggleSidebar: () => void
+  setView: (view: AppView) => void
   
   refreshSession: () => Promise<void>
   refreshGuilds: () => Promise<void>
@@ -50,6 +54,7 @@ export function AppProvider({ children }: { children: ReactNode }) {
 
   const [selectedGuild, setSelectedGuild] = useState<string>("")
   const [sidebarOpen, setSidebarOpen] = useState(false)
+  const [view, setView] = useState<AppView>("guild")
 
   const refreshSession = async () => {
     try {
@@ -125,10 +130,12 @@ export function AppProvider({ children }: { children: ReactNode }) {
         tokens,
         selectedGuild,
         sidebarOpen,
+        view,
         setSession,
         setSelectedGuild,
         setSidebarOpen,
         toggleSidebar: () => setSidebarOpen(!sidebarOpen),
+        setView,
         refreshSession,
         refreshGuilds,
         refreshDeployments,
