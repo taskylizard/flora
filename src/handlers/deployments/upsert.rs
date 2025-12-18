@@ -31,6 +31,8 @@ pub struct DeploymentResponse {
     pub language: String,
     pub created_at: String,
     pub updated_at: String,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub source: Option<String>,
 }
 
 impl From<Deployment> for DeploymentResponse {
@@ -40,7 +42,15 @@ impl From<Deployment> for DeploymentResponse {
             language: value.language.as_str().to_string(),
             created_at: value.created_at.to_rfc3339(),
             updated_at: value.updated_at.to_rfc3339(),
+            source: None,
         }
+    }
+}
+
+impl DeploymentResponse {
+    pub fn with_source(mut self, source: String) -> Self {
+        self.source = Some(source);
+        self
     }
 }
 

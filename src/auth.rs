@@ -90,8 +90,27 @@ pub struct CurrentUserGuildMember {
 pub struct UserGuild {
     pub id: String,
     pub name: String,
+    #[serde(default)]
     pub icon: Option<String>,
+    #[serde(default, deserialize_with = "deserialize_permission_string_or_number")]
     pub permissions: Option<String>,
+    #[serde(default)]
+    pub permissions_new: Option<String>,
+}
+
+fn deserialize_permission_string_or_number<'de, D>(deserializer: D) -> Result<Option<String>, D::Error>
+where
+    D: serde::Deserializer<'de>,
+{
+    use serde::de::{self, Deserialize};
+    use serde_json::Value;
+    
+    let value = Option::<Value>::deserialize(deserializer)?;
+    Ok(value.and_then(|v| match v {
+        Value::String(s) => Some(s),
+        Value::Number(n) => Some(n.to_string()),
+        _ => None,
+    }))
 }
 
 /// Service responsible for OAuth exchanges and session management.
@@ -233,7 +252,12 @@ impl AuthService {
             return Err(eyre!("failed to list guilds: {}", body));
         }
 
-        res.json::<Vec<UserGuild>>().await.wrap_err("failed to decode user guilds")
+        let body = res.text().await.wrap_err("failed to read response")?;
+        serde_json::from_str::<Vec<UserGuild>>(&body)
+            .wrap_err_with(|| {
+                let preview = if body.len() > 500 { &body[..500] } else { &body };
+                format!("failed to decode user guilds. First 500 chars: {}", preview)
+            })
     }
 
     pub async fn fetch_guild_member(

@@ -90,3 +90,28 @@ impl IntoResponses for ApiRedirect {
         BTreeMap::from([("302".to_string(), RefOr::T(response))])
     }
 }
+
+/// Redirect response with attached Set-Cookie headers.
+pub struct ApiRedirectWithCookies {
+    pub response: Response,
+    pub cookies: Vec<Cookie<'static>>,
+}
+
+impl IntoResponse for ApiRedirectWithCookies {
+    fn into_response(self) -> Response {
+        let mut response = self.response;
+        for cookie in self.cookies {
+            if let Ok(value) = http::HeaderValue::from_str(&cookie.to_string()) {
+                response.headers_mut().append(http::header::SET_COOKIE, value);
+            }
+        }
+        response
+    }
+}
+
+impl IntoResponses for ApiRedirectWithCookies {
+    fn responses() -> BTreeMap<String, RefOr<utoipa::openapi::response::Response>> {
+        let response = ResponseBuilder::new().description("Redirect response with cookies").build();
+        BTreeMap::from([("302".to_string(), RefOr::T(response))])
+    }
+}

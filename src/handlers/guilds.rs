@@ -53,27 +53,37 @@ pub async fn list_guilds_handler(
 
     let mut allowed = Vec::new();
     for guild in guilds {
-        let perms =
-            guild.permissions.as_deref().and_then(|p| p.parse::<u64>().ok()).unwrap_or_default();
+        let perms = guild
+            .permissions_new
+            .as_deref()
+            .or(guild.permissions.as_deref())
+            .and_then(|p| p.parse::<u64>().ok())
+            .unwrap_or_default();
 
         if !has_admin_permissions(perms) {
             continue;
         }
 
-        let is_member = state
-            .auth
-            .fetch_guild_member(&guild.id, &access_token)
-            .await
-            .map_err(ApiError::internal)?
-            .is_some();
+        let guild_id_u64: u64 = match guild.id.parse() {
+            Ok(id) => id,
+            Err(err) => {
+                tracing::warn!(guild_id = %guild.id, "failed to parse guild ID: {}", err);
+                continue;
+            }
+        };
 
-        if is_member {
-            allowed.push(GuildResponse {
-                id: guild.id,
-                name: guild.name,
-                icon: guild.icon,
-                permissions: perms,
-            });
+        match state.http.get_guild(guild_id_u64.into()).await {
+            Ok(_) => {
+                allowed.push(GuildResponse {
+                    id: guild.id,
+                    name: guild.name,
+                    icon: guild.icon,
+                    permissions: perms,
+                });
+            }
+            Err(err) => {
+                tracing::debug!(guild_id = %guild.id, guild_name = %guild.name, "bot not in guild or failed to fetch: {}", err);
+            }
         }
     }
 
