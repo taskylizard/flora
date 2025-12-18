@@ -9,7 +9,7 @@ pub struct HealthApi;
 /// Check API liveness.
 #[utoipa::path(
     get,
-    path = "/health",
+    path = "/",
     tag = "health",
     responses(
         (status = 200, description = "API is healthy", body = String)

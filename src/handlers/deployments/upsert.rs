@@ -47,7 +47,7 @@ impl From<Deployment> for DeploymentResponse {
 /// Create or update a deployment for a guild.
 #[utoipa::path(
     post,
-    path = "/deployments/{guild_id}",
+    path = "/{guild_id}",
     request_body = DeploymentRequest,
     params(
         ("guild_id" = String, Path, description = "Discord guild id")

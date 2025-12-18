@@ -31,9 +31,9 @@ pub struct AuthApi;
 
 pub fn router() -> axum::Router<AppState> {
     axum::Router::new()
-        .route("/auth/login", axum::routing::get(login_handler))
-        .route("/auth/callback", axum::routing::get(callback_handler))
-        .route("/auth/me", axum::routing::get(me_handler))
+        .route("/login", axum::routing::get(login_handler))
+        .route("/callback", axum::routing::get(callback_handler))
+        .route("/me", axum::routing::get(me_handler))
 }
 
 /// API representation of the authenticated user.
@@ -71,7 +71,7 @@ pub struct CallbackQuery {
 /// Begin Discord OAuth flow and set a short-lived state cookie.
 #[utoipa::path(
     get,
-    path = "/auth/login",
+    path = "/login",
     tag = "auth",
     responses(
         (status = 302, description = "Redirect to Discord")
@@ -93,7 +93,7 @@ pub async fn login_handler(State(state): State<AppState>) -> Result<ApiRedirect,
 /// Handle Discord OAuth callback, mint a session cookie, and return the user profile.
 #[utoipa::path(
     get,
-    path = "/auth/callback",
+    path = "/callback",
     tag = "auth",
     params(
         ("code" = String, Query, description = "Discord authorization code"),
@@ -145,7 +145,7 @@ pub async fn callback_handler(
 /// Return the currently authenticated user.
 #[utoipa::path(
     get,
-    path = "/auth/me",
+    path = "/me",
     tag = "auth",
     responses(
         (status = 200, description = "Session is valid", body = AuthResponse),

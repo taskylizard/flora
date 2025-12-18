@@ -13,7 +13,7 @@ use super::DeploymentResponse;
 /// List every stored deployment.
 #[utoipa::path(
     get,
-    path = "/deployments",
+    path = "/",
     tag = "deployment",
     responses(
         (status = 200, description = "Deployments retrieved", body = [DeploymentResponse]),

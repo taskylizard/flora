@@ -17,7 +17,7 @@ use super::DeploymentResponse;
 /// Fetch a single deployment by guild id.
 #[utoipa::path(
     get,
-    path = "/deployments/{guild_id}",
+    path = "/{guild_id}",
     params(
         ("guild_id" = String, Path, description = "Discord guild id")
     ),
