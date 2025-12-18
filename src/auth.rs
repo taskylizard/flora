@@ -82,7 +82,23 @@ pub struct TokenResponse {
 /// Membership information returned by Discord for the current user in a guild.
 #[derive(Debug, Deserialize, Clone)]
 pub struct CurrentUserGuildMember {
+    #[serde(default, deserialize_with = "deserialize_permission_field")]
     pub permissions: Option<String>,
+}
+
+fn deserialize_permission_field<'de, D>(deserializer: D) -> Result<Option<String>, D::Error>
+where
+    D: serde::Deserializer<'de>,
+{
+    use serde::de::Deserialize;
+    use serde_json::Value;
+    
+    let value = Option::<Value>::deserialize(deserializer)?;
+    Ok(value.and_then(|v| match v {
+        Value::String(s) => Some(s),
+        Value::Number(n) => Some(n.to_string()),
+        _ => None,
+    }))
 }
 
 /// Guild entry returned by /users/@me/guilds.
@@ -275,11 +291,15 @@ impl AuthService {
             .wrap_err("failed to request guild membership")?;
 
         match res.status().as_u16() {
-            200 => res
-                .json::<CurrentUserGuildMember>()
-                .await
-                .map(Some)
-                .wrap_err("failed to decode guild membership"),
+            200 => {
+                let body = res.text().await.wrap_err("failed to read guild member response")?;
+                serde_json::from_str::<CurrentUserGuildMember>(&body)
+                    .map(Some)
+                    .wrap_err_with(|| {
+                        let preview = if body.len() > 1000 { &body[..1000] } else { &body };
+                        format!("failed to decode guild membership. Full response: {}", preview)
+                    })
+            }
             401 => Ok(None),
             403 | 404 => Ok(None),
             other => {
