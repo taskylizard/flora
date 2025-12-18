@@ -41,8 +41,8 @@ import {
 } from "lucide-react"
 import { Button } from "@/components/ui/button"
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
-import { Textarea } from "@/components/ui/textarea"
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
+import Monaco from "@uwu/monaco-react"
 import { Badge } from "@/components/ui/badge"
 import { Input } from "@/components/ui/input"
 import { Skeleton } from "@/components/ui/skeleton"
@@ -479,12 +479,22 @@ export function Dashboard() {
                                  <Clock className="h-8 w-8 animate-spin text-primary" />
                              </div>
                           )}
-                          <Textarea
-                            value={code}
-                            onChange={(e) => setCode(e.target.value)}
-                            className="h-full w-full resize-none rounded-none border-0 bg-transparent p-4 font-mono text-sm leading-relaxed text-zinc-50 focus-visible:ring-0"
-                            spellCheck={false}
-                            placeholder="// Start coding..."
+                          <Monaco
+                              value={code}
+                              valOut={setCode}
+                              lang={language}
+                              theme="vs-dark"
+                              height="100%"
+                              width="100%"
+                              readonly={isCodeLoading}
+                              otherCfg={{
+                                minimap: { enabled: false },
+                                fontSize: 14,
+                                lineNumbers: "on",
+                                scrollBeyondLastLine: false,
+                                automaticLayout: true,
+                                padding: { top: 16, bottom: 16 }
+                              }}
                           />
                       </div>
                    </Card>
