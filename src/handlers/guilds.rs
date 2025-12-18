@@ -18,7 +18,7 @@ use crate::{
 pub struct GuildApi;
 
 pub fn router() -> Router<AppState> {
-    Router::new().route("/guilds", get(list_guilds_handler))
+    Router::new().route("/", get(list_guilds_handler))
 }
 
 /// Guild info exposed by the API.
@@ -33,7 +33,7 @@ pub struct GuildResponse {
 /// List guilds where the user is an admin and the bot is present.
 #[utoipa::path(
     get,
-    path = "/guilds",
+    path = "/",
     tag = "guilds",
     responses(
         (status = 200, description = "Guilds available for deployment", body = [GuildResponse]),

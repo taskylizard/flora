@@ -13,7 +13,7 @@ pub mod response;
 pub mod tokens;
 
 /// Build the top-level router with API routes and interactive docs.
-pub fn create_router(state: AppState) -> Router {
+pub fn create_router() -> Router<AppState> {
     #[derive(OpenApi)]
     #[openapi(
         nest(
@@ -32,10 +32,10 @@ pub fn create_router(state: AppState) -> Router {
     struct ApiDoc;
 
     let api_router = Router::new()
-        .merge(auth::router())
-        .merge(guilds::router())
-        .merge(tokens::router())
-        .merge(deployments::router())
+        .nest("/auth", auth::router())
+        .nest("/guilds", guilds::router())
+        .nest("/tokens", tokens::router())
+        .nest("/deployments", deployments::router())
         .route("/health", get(health::health_check));
 
     let oapi_router = Router::new()
@@ -46,5 +46,4 @@ pub fn create_router(state: AppState) -> Router {
         .nest("/api-docs", oapi_router)
         // Expose API only under `/api/*`
         .nest("/api", api_router)
-        .with_state(state)
 }

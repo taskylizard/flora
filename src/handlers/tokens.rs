@@ -28,9 +28,9 @@ pub struct TokenApi;
 
 pub fn router() -> Router<AppState> {
     Router::new()
-        .route("/tokens", post(create_token_handler))
-        .route("/tokens", axum::routing::get(list_tokens_handler))
-        .route("/tokens/{token_id}", delete(delete_token_handler))
+        .route("/", post(create_token_handler))
+        .route("/", axum::routing::get(list_tokens_handler))
+        .route("/{token_id}", delete(delete_token_handler))
 }
 
 /// Create-token payload.
@@ -68,7 +68,7 @@ impl From<UserToken> for TokenResponse {
 /// Mint a new API token for the authenticated user.
 #[utoipa::path(
     post,
-    path = "/tokens",
+    path = "/",
     tag = "tokens",
     request_body = CreateTokenRequest,
     responses(
@@ -91,7 +91,7 @@ pub async fn create_token_handler(
 /// List tokens for the authenticated user.
 #[utoipa::path(
     get,
-    path = "/tokens",
+    path = "/",
     tag = "tokens",
     responses(
         (status = 200, description = "Tokens listed", body = [TokenResponse]),
@@ -110,7 +110,7 @@ pub async fn list_tokens_handler(
 /// Delete a token by id.
 #[utoipa::path(
     delete,
-    path = "/tokens/{token_id}",
+    path = "/{token_id}",
     tag = "tokens",
     params(
         ("token_id" = String, Path, description = "Token identifier")

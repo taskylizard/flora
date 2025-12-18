@@ -130,7 +130,7 @@ async fn main() -> Result<()> {
         http: http.clone(),
     };
 
-    let api_router = create_router(api_state);
+    let api_router = create_router().with_state(api_state);
     let listener = TcpListener::bind(api_addr).await?;
     let api_service = api_router.into_make_service();
     let api_task = tokio::spawn(axum::serve(listener, api_service).into_future());
