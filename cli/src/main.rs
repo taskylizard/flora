@@ -34,9 +34,6 @@ enum Commands {
         guild: String,
         /// Path to JS/TS script file
         file: PathBuf,
-        /// Script language (defaults to ts)
-        #[arg(value_enum, default_value = "typescript")]
-        language: Language,
     },
     /// Fetch a guild deployment
     Get {
@@ -48,12 +45,6 @@ enum Commands {
     List,
     /// Health check
     Health,
-}
-
-#[derive(Clone, Debug, ValueEnum)]
-enum Language {
-    Javascript,
-    Typescript,
 }
 
 #[derive(Serialize)]
@@ -90,9 +81,9 @@ async fn main() -> Result<()> {
             token_store.save(&token)?;
             println!("Saved token to {}", token_store.path().display());
         }
-        Commands::Deploy { guild, file, language } => {
+        Commands::Deploy { guild, file } => {
             let token = token_store.get(cli.token.as_deref())?;
-            deploy(&client, &cli.api_url, &token, guild, file, language).await?
+            deploy(&client, &cli.api_url, &token, guild, file).await?
         }
         Commands::Get { guild } => {
             let token = token_store.get(cli.token.as_deref())?;
@@ -114,17 +105,12 @@ async fn deploy(
     token: &str,
     guild: String,
     file: PathBuf,
-    language: Language,
 ) -> Result<()> {
     let code = fs::read_to_string(&file)
         .map_err(|err| eyre!("failed to read {}: {err}", file.display()))?;
-    let lang_str = match language {
-        Language::Javascript => "javascript",
-        Language::Typescript => "typescript",
-    };
 
     let url = format!("{api_url}/deployments/{guild}");
-    let body = DeploymentRequest { code: &code, language: Some(lang_str) };
+    let body = DeploymentRequest { code: &code, language: None };
 
     let resp = client
         .post(url)
