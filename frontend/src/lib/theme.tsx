@@ -16,12 +16,12 @@ function applyTheme(theme: Theme) {
   } else {
     root.classList.remove("dark")
   }
-  localStorage.setItem("oakmoss-theme", theme)
+  localStorage.setItem("flora-theme", theme)
 }
 
 function getInitialTheme(): Theme {
   if (typeof window === "undefined") return "light"
-  const stored = localStorage.getItem("oakmoss-theme") as Theme | null
+  const stored = localStorage.getItem("flora-theme") as Theme | null
   if (stored === "light" || stored === "dark") return stored
   const prefersDark = window.matchMedia("(prefers-color-scheme: dark)").matches
   return prefersDark ? "dark" : "light"
