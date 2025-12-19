@@ -55,7 +55,7 @@ fn is_typescript_specifier(specifier: &str) -> bool {
 pub fn detect_typescript(source: &str) -> bool {
     use oxc::parser::{Parser, ParserReturn};
     use oxc::allocator::Allocator;
-    use oxc::ast::Visit;
+    use oxc::ast_visit::Visit;
 
     let allocator = Allocator::default();
     let source_type = SourceType::default().with_typescript(true).with_module(true);
@@ -140,5 +140,64 @@ impl CompilerInterface for TsCompiler {
     fn after_codegen(&mut self, ret: CodegenReturn) {
         self.output = ret.code;
         self.source_map = ret.map;
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn test_detect_typescript_with_interface() {
+        let code = r#"
+interface User {
+  name: string;
+  age: number;
+}
+        "#;
+        assert!(detect_typescript(code));
+    }
+
+    #[test]
+    fn test_detect_typescript_with_type_annotation() {
+        let code = r#"
+function greet(user: User): string {
+  return `Hello, ${user.name}!`;
+}
+        "#;
+        assert!(detect_typescript(code));
+    }
+
+    #[test]
+    fn test_detect_typescript_with_enum() {
+        let code = r#"
+enum Color {
+  Red,
+  Green,
+  Blue
+}
+        "#;
+        assert!(detect_typescript(code));
+    }
+
+    #[test]
+    fn test_detect_javascript() {
+        let code = r#"
+function greet(user) {
+  return `Hello, ${user.name}!`;
+}
+        "#;
+        assert!(!detect_typescript(code));
+    }
+
+    #[test]
+    fn test_detect_javascript_with_comments() {
+        let code = r#"
+// This is a User type
+function greet(user) {
+  return `Hello, ${user.name}!`;
+}
+        "#;
+        assert!(!detect_typescript(code));
     }
 }
