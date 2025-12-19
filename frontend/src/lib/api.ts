@@ -99,7 +99,7 @@ export async function fetchDeployment(guildId: string) {
 
 export async function saveDeployment(
   guildId: string,
-  payload: { code: string; language: Language }
+  payload: { code: string }
 ) {
   return apiFetch<Deployment>(`/deployments/${guildId}`, {
     method: "POST",
