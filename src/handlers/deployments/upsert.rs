@@ -1,6 +1,7 @@
 use axum::{
     Json,
     extract::{Path, State},
+    http::HeaderMap,
 };
 use serde::{Deserialize, Serialize};
 use tracing::error;
@@ -8,6 +9,7 @@ use utoipa::ToSchema;
 
 use crate::{
     deployments::{Deployment, ScriptLanguage},
+    handlers::auth::{ensure_guild_admin, require_session},
     handlers::{error::ApiError, response::ApiJson},
     state::AppState,
 };
@@ -58,8 +60,12 @@ impl From<Deployment> for DeploymentResponse {
 pub async fn upsert_deployment_handler(
     Path(guild_id): Path<String>,
     State(state): State<AppState>,
+    headers: HeaderMap,
     Json(request): Json<DeploymentRequest>,
 ) -> Result<ApiJson<DeploymentResponse>, ApiError> {
+    let session = require_session(&state.auth, &headers).await?;
+    ensure_guild_admin(&state.auth, &session, &guild_id).await?;
+
     let language = ScriptLanguage::from_option(request.language);
     let deployment = state
         .deployments
