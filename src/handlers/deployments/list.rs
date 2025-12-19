@@ -3,6 +3,7 @@ use tracing::error;
 
 use crate::{
     handlers::auth::{ensure_guild_admin, require_identity},
+    handlers::auth::{ensure_guild_admin, require_session},
     handlers::{error::ApiError, response::ApiJson},
     state::AppState,
 };
@@ -24,6 +25,7 @@ pub async fn list_deployments_handler(
     headers: HeaderMap,
 ) -> Result<ApiJson<Vec<DeploymentResponse>>, ApiError> {
     let identity = require_identity(&state, &headers).await?;
+    let session = require_session(&state.auth, &headers).await?;
 
     let deployments = state.deployments.list_deployments().await.map_err(|err| {
         error!(target: "oakmoss:api", ?err, "failed to list deployments");
@@ -33,6 +35,7 @@ pub async fn list_deployments_handler(
     let mut response = Vec::new();
     for deployment in deployments {
         if ensure_guild_admin(&state, &identity, &deployment.guild_id).await.is_ok() {
+        if ensure_guild_admin(&state.auth, &session, &deployment.guild_id).await.is_ok() {
             response.push(DeploymentResponse::from(deployment));
         }
     }

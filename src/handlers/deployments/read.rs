@@ -7,6 +7,7 @@ use tracing::error;
 
 use crate::{
     handlers::auth::{ensure_guild_admin, require_identity},
+    handlers::auth::{ensure_guild_admin, require_session},
     handlers::{error::ApiError, response::ApiJson},
     state::AppState,
 };
@@ -33,6 +34,7 @@ pub async fn get_deployment_handler(
     headers: HeaderMap,
 ) -> Result<ApiJson<DeploymentResponse>, ApiError> {
     let identity = require_identity(&state, &headers).await?;
+    let session = require_session(&state.auth, &headers).await?;
 
     let deployment = state.deployments.get_deployment(&guild_id).await.map_err(|err| {
         error!(target: "oakmoss:api", guild_id, ?err, "failed to fetch deployment");
@@ -44,6 +46,7 @@ pub async fn get_deployment_handler(
     };
 
     ensure_guild_admin(&state, &identity, &guild_id).await?;
+    ensure_guild_admin(&state.auth, &session, &guild_id).await?;
 
     Ok(ApiJson(Json(deployment.into())))
 }
