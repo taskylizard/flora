@@ -102,6 +102,7 @@ where
 }
 
 /// Guild entry returned by /users/@me/guilds.
+#[allow(dead_code)]
 #[derive(Debug, Deserialize, Clone)]
 pub struct UserGuild {
     pub id: String,
@@ -114,11 +115,12 @@ pub struct UserGuild {
     pub permissions_new: Option<String>,
 }
 
+#[allow(dead_code)]
 fn deserialize_permission_string_or_number<'de, D>(deserializer: D) -> Result<Option<String>, D::Error>
 where
     D: serde::Deserializer<'de>,
 {
-    use serde::de::{self, Deserialize};
+    use serde::de::Deserialize;
     use serde_json::Value;
     
     let value = Option::<Value>::deserialize(deserializer)?;
@@ -254,6 +256,7 @@ impl AuthService {
         res.json::<DiscordUser>().await.wrap_err("failed to decode discord user")
     }
 
+    #[allow(dead_code)]
     pub async fn fetch_user_guilds(&self, access_token: &str) -> Result<Vec<UserGuild>> {
         let res = self
             .http

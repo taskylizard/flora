@@ -1,4 +1,4 @@
-use std::sync::Arc;
+use std::sync::{Arc, RwLock};
 
 use serde::Serialize;
 use serenity::all::{
@@ -13,7 +13,8 @@ use crate::runtime::BotRuntime;
 pub struct DiscordHandler {
     pub runtime: Arc<BotRuntime>,
     pub http: Arc<serenity::http::Http>,
-    pub application_id: Arc<std::sync::RwLock<Option<ApplicationId>>>,
+    pub application_id: Arc<RwLock<Option<ApplicationId>>>,
+    pub bot_guilds: Arc<RwLock<Vec<GuildId>>>,
 }
 
 #[async_trait]
@@ -26,6 +27,12 @@ impl EventHandler for DiscordHandler {
             *app_id = Some(ready.application.id);
         }
         self.http.set_application_id(ready.application.id);
+
+        {
+            let mut guilds = self.bot_guilds.write().unwrap();
+            *guilds = ready.guilds.iter().map(|g| g.id).collect();
+            info!("Bot is in {} guilds", guilds.len());
+        }
 
         for guild in &ready.guilds {
             if let Err(err) = self.register_guild_commands(guild.id).await {
