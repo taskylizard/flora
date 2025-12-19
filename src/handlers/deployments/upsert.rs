@@ -20,7 +20,8 @@ use crate::{
 pub struct DeploymentRequest {
     /// Raw source code for the guild bot.
     pub code: String,
-    /// Optional scripting language hint. Defaults to `typescript`.
+    /// Optional scripting language hint (deprecated - language is auto-detected from code).
+    #[serde(skip_serializing_if = "Option::is_none")]
     pub language: Option<String>,
 }
 
@@ -79,7 +80,7 @@ pub async fn upsert_deployment_handler(
     let session = require_session(&state.auth, &headers).await?;
     ensure_guild_admin(&state.auth, &session, &guild_id).await?;
 
-    let language = ScriptLanguage::from_option(request.language);
+    let language = ScriptLanguage::detect_from_source(&request.code);
     let deployment = state
         .deployments
         .upsert_deployment(guild_id.clone(), request.code, language.clone())

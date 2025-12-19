@@ -34,6 +34,14 @@ impl ScriptLanguage {
         }
     }
 
+    pub fn detect_from_source(source: &str) -> Self {
+        if crate::transpile::detect_typescript(source) {
+            ScriptLanguage::Typescript
+        } else {
+            ScriptLanguage::Javascript
+        }
+    }
+
     pub fn as_str(&self) -> &'static str {
         match self {
             ScriptLanguage::Javascript => "javascript",
