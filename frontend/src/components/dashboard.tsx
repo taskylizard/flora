@@ -23,7 +23,6 @@ import {
   Moon,
   Sun,
   Play,
-  Terminal,
   Clock,
   CheckCircle2,
   XCircle,
@@ -34,6 +33,8 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/com
 
 import Monaco from "@uwu/monaco-react";
 import { Badge } from "@/components/ui/badge";
+import { ScrollArea, ScrollBar } from "@/components/ui/scroll-area";
+import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { cn } from "@/lib/utils";
 import { useTheme } from "@/lib/theme";
 import { useApp } from "@/contexts/AppContext";
@@ -219,32 +220,142 @@ export function Dashboard() {
             </div>
           ) : (
             <>
-              {selectedGuild && (
-                <div className="border-b px-6 bg-muted/20">
-                  <nav className="flex items-center gap-6 overflow-x-auto">
-                    <TabButton
-                      active={activeTab === "editor"}
-                      onClick={() => setActiveTab("editor")}
-                      icon={Code2}
-                      label="Editor"
-                    />
-                    <TabButton
-                      active={activeTab === "deployments"}
-                      onClick={() => setActiveTab("deployments")}
-                      icon={History}
-                      label="Deployments"
-                    />
-                  </nav>
-                </div>
-              )}
+              {selectedGuild ? (
+                <Tabs value={activeTab} onValueChange={(value) => setActiveTab(value as Tab)} className="flex-1 flex flex-col">
+                    <ScrollArea>
+                      <TabsList className="mb-3">
+                        <TabsTrigger value="editor">
+                          <Code2
+                            aria-hidden="true"
+                            className="-ms-0.5 me-1.5 opacity-60"
+                            size={16}
+                          />
+                          Editor
+                        </TabsTrigger>
+                        <TabsTrigger value="deployments">
+                          <History
+                            aria-hidden="true"
+                            className="-ms-0.5 me-1.5 opacity-60"
+                            size={16}
+                          />
+                          Deployments
+                        </TabsTrigger>
+                      </TabsList>
+                      <ScrollBar orientation="horizontal" />
+                    </ScrollArea>
 
-              <div
-                className={cn(
-                  "flex-1 p-4 md:p-6 lg:p-8",
-                  activeTab === "editor" ? "flex flex-col overflow-hidden" : "overflow-y-auto",
-                )}
-              >
-                {!selectedGuild ? (
+                    <TabsContent value="editor" className="flex-1 flex flex-col min-h-0">
+                      <div className="flex flex-col flex-1 min-h-0 mx-auto w-full animate-in fade-in slide-in-from-bottom-4 duration-500 max-w-6xl">
+                        <div className="flex items-center justify-end px-4 py-2 bg-background border-b">
+                          <div className="flex items-center gap-2">
+                            {saveStatus === "error" && saveError && (
+                              <span className="text-xs text-destructive flex items-center gap-1 animate-in fade-in">
+                                <XCircle className="h-3 w-3" /> {saveError}
+                              </span>
+                            )}
+                            {saveStatus === "saved" && (
+                              <span className="text-xs text-green-600 flex items-center gap-1 animate-in fade-in">
+                                <CheckCircle2 className="h-3 w-3" /> Saved
+                              </span>
+                            )}
+                            <Button
+                              size="sm"
+                              onClick={handleSave}
+                              disabled={saveStatus === "saving" || isCodeLoading}
+                              className={cn(
+                                "transition-all",
+                                saveStatus === "saved" ? "bg-green-600 hover:bg-green-700" : "",
+                              )}
+                            >
+                              {saveStatus === "saving" ? (
+                                <Clock className="mr-2 h-3 w-3 animate-spin" />
+                              ) : (
+                                <Play className="mr-2 h-3 w-3 fill-current" />
+                              )}
+                              {saveStatus === "saved" ? "Deployed" : "Deploy"}
+                            </Button>
+                          </div>
+                        </div>
+                        <div className="relative flex-1 bg-zinc-950 h-full w-full">
+                          {isCodeLoading && (
+                            <div className="absolute inset-0 z-10 flex items-center justify-center bg-background/50 backdrop-blur-sm">
+                              <Clock className="h-8 w-8 animate-spin text-primary" />
+                            </div>
+                          )}
+                          <Monaco
+                            value={code}
+                            valOut={setCode}
+                            lang={language}
+                            theme="vs-dark"
+                            height="100%"
+                            width="100%"
+                            readonly={isCodeLoading}
+                            otherCfg={{
+                              minimap: { enabled: false },
+                              fontSize: 14,
+                              lineNumbers: "on",
+                              scrollBeyondLastLine: false,
+                              automaticLayout: true,
+                              padding: { top: 16, bottom: 16 },
+                            }}
+                          />
+                        </div>
+                      </div>
+                    </TabsContent>
+
+                    <TabsContent value="deployments" className="flex-1 overflow-y-auto">
+                      <div className="mx-auto w-full animate-in fade-in slide-in-from-bottom-4 duration-500 max-w-6xl space-y-6">
+                        <Card>
+                          <CardHeader>
+                            <CardTitle>Deployment History</CardTitle>
+                            <CardDescription>Recent updates to your guild bots.</CardDescription>
+                          </CardHeader>
+                          <CardContent>
+                            {!deployments.data?.length ? (
+                              <EmptyState
+                                icon={History}
+                                title="No deployments"
+                                description="You haven't deployed any code yet."
+                              />
+                            ) : (
+                              <div className="space-y-4">
+                                {deployments.data
+                                  .filter((d) => d.guild_id === selectedGuild || !selectedGuild)
+                                  .map((dep) => (
+                                    <div
+                                      key={dep.guild_id}
+                                      className="flex items-center justify-between rounded-lg border p-4 transition-colors hover:bg-muted/50"
+                                    >
+                                      <div className="flex items-center gap-4">
+                                        <div className="rounded-full bg-primary/10 p-2 text-primary">
+                                          <Code2 className="h-4 w-4" />
+                                        </div>
+                                        <div>
+                                          <p className="font-medium text-sm">
+                                            {guilds.data?.find((g) => g.id === dep.guild_id)?.name ||
+                                              dep.guild_id}
+                                          </p>
+                                          <p className="text-xs text-muted-foreground">
+                                            Deployed {formatTimeAgo(dep.updated_at)}
+                                          </p>
+                                        </div>
+                                      </div>
+                                      <div className="flex items-center gap-3">
+                                        <Badge variant="secondary" className="font-mono text-xs">
+                                          {dep.language}
+                                        </Badge>
+                                      </div>
+                                    </div>
+                                  ))}
+                              </div>
+                            )}
+                          </CardContent>
+                        </Card>
+                      </div>
+                    </TabsContent>
+                </Tabs>
+              ) : (
+                <div className="flex-1 p-4 md:p-6 lg:p-8">
                   <div className="flex h-full flex-col items-center justify-center text-center animate-in fade-in zoom-in-95 duration-500">
                     <div className="rounded-full bg-primary/10 p-6 mb-4">
                       <Server className="h-10 w-10 text-primary" />
@@ -255,133 +366,8 @@ export function Dashboard() {
                       configure settings.
                     </p>
                   </div>
-                ) : (
-                  <div
-                    className={cn(
-                      "mx-auto w-full animate-in fade-in slide-in-from-bottom-4 duration-500",
-                      activeTab === "editor"
-                        ? "flex-1 flex flex-col min-h-0 max-w-6xl"
-                        : "max-w-6xl space-y-6",
-                    )}
-                  >
-                    {activeTab === "editor" && (
-                      <div className="flex flex-col flex-1 min-h-0 gap-6">
-                        <Card className="flex-1 flex flex-col min-h-0 overflow-hidden border-border/60 shadow-md">
-                          <div className="flex items-center justify-between border-b px-4 py-2 bg-muted/30">
-                            <div className="flex items-center gap-3">
-                              <Terminal className="h-4 w-4 text-muted-foreground" />
-                              <Badge variant="secondary" className="font-mono text-xs">
-                                {language}
-                              </Badge>
-                            </div>
-                            <div className="flex items-center gap-2">
-                              {saveStatus === "error" && saveError && (
-                                <span className="text-xs text-destructive flex items-center gap-1 animate-in fade-in">
-                                  <XCircle className="h-3 w-3" /> {saveError}
-                                </span>
-                              )}
-                              {saveStatus === "saved" && (
-                                <span className="text-xs text-green-600 flex items-center gap-1 animate-in fade-in">
-                                  <CheckCircle2 className="h-3 w-3" /> Saved
-                                </span>
-                              )}
-                              <Button
-                                size="sm"
-                                onClick={handleSave}
-                                disabled={saveStatus === "saving" || isCodeLoading}
-                                className={cn(
-                                  "transition-all",
-                                  saveStatus === "saved" ? "bg-green-600 hover:bg-green-700" : "",
-                                )}
-                              >
-                                {saveStatus === "saving" ? (
-                                  <Clock className="mr-2 h-3 w-3 animate-spin" />
-                                ) : (
-                                  <Play className="mr-2 h-3 w-3 fill-current" />
-                                )}
-                                {saveStatus === "saved" ? "Deployed" : "Deploy"}
-                              </Button>
-                            </div>
-                          </div>
-                          <div className="relative flex-1 bg-zinc-950">
-                            {isCodeLoading && (
-                              <div className="absolute inset-0 z-10 flex items-center justify-center bg-background/50 backdrop-blur-sm">
-                                <Clock className="h-8 w-8 animate-spin text-primary" />
-                              </div>
-                            )}
-                            <Monaco
-                              value={code}
-                              valOut={setCode}
-                              lang={language}
-                              theme="vs-dark"
-                              height="100%"
-                              width="100%"
-                              readonly={isCodeLoading}
-                              otherCfg={{
-                                minimap: { enabled: false },
-                                fontSize: 14,
-                                lineNumbers: "on",
-                                scrollBeyondLastLine: false,
-                                automaticLayout: true,
-                                padding: { top: 16, bottom: 16 },
-                              }}
-                            />
-                          </div>
-                        </Card>
-                      </div>
-                    )}
-
-                    {activeTab === "deployments" && (
-                      <Card>
-                        <CardHeader>
-                          <CardTitle>Deployment History</CardTitle>
-                          <CardDescription>Recent updates to your guild bots.</CardDescription>
-                        </CardHeader>
-                        <CardContent>
-                          {!deployments.data?.length ? (
-                            <EmptyState
-                              icon={History}
-                              title="No deployments"
-                              description="You haven't deployed any code yet."
-                            />
-                          ) : (
-                            <div className="space-y-4">
-                              {deployments.data
-                                .filter((d) => d.guild_id === selectedGuild || !selectedGuild)
-                                .map((dep) => (
-                                  <div
-                                    key={dep.guild_id}
-                                    className="flex items-center justify-between rounded-lg border p-4 transition-colors hover:bg-muted/50"
-                                  >
-                                    <div className="flex items-center gap-4">
-                                      <div className="rounded-full bg-primary/10 p-2 text-primary">
-                                        <Code2 className="h-4 w-4" />
-                                      </div>
-                                      <div>
-                                        <p className="font-medium text-sm">
-                                          {guilds.data?.find((g) => g.id === dep.guild_id)?.name ||
-                                            dep.guild_id}
-                                        </p>
-                                        <p className="text-xs text-muted-foreground">
-                                          Deployed {formatTimeAgo(dep.updated_at)}
-                                        </p>
-                                      </div>
-                                    </div>
-                                    <div className="flex items-center gap-3">
-                                      <Badge variant="secondary" className="font-mono text-xs">
-                                        {dep.language}
-                                      </Badge>
-                                    </div>
-                                  </div>
-                                ))}
-                            </div>
-                          )}
-                        </CardContent>
-                      </Card>
-                    )}
-                  </div>
-                )}
-              </div>
+                </div>
+              )}
             </>
           )}
         </SidebarInset>
@@ -390,30 +376,7 @@ export function Dashboard() {
   );
 }
 
-function TabButton({
-  active,
-  onClick,
-  icon: Icon,
-  label,
-}: {
-  active: boolean;
-  onClick: () => void;
-  icon: React.ComponentType<{ className?: string }>;
-  label: string;
-}) {
-  return (
-    <button
-      onClick={onClick}
-      className={cn(
-        "flex items-center gap-2 border-b-2 py-4 text-sm font-medium transition-colors hover:text-primary",
-        active ? "border-primary text-primary" : "border-transparent text-muted-foreground",
-      )}
-    >
-      <Icon className="h-4 w-4" />
-      {label}
-    </button>
-  );
-}
+
 
 function EmptyState({
   icon: Icon,
