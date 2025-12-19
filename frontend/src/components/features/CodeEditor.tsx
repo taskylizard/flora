@@ -1,56 +1,56 @@
-import { useEffect, useState } from "react"
-import { CheckCircle2, Clock, Play, Terminal, XCircle } from "lucide-react"
-import { Badge } from "@/components/ui/badge"
-import { Button } from "@/components/ui/button"
-import { Card } from "@/components/ui/card"
-import { Textarea } from "@/components/ui/textarea"
-import { cn } from "@/lib/utils"
-import { useApp } from "@/contexts/AppContext"
-import { fetchDeployment, saveDeployment, type Language } from "@/lib/api"
-import defaultCode from "../../../../example/bot.ts" assert {type: "text"}
+import { useEffect, useState } from "react";
+import { CheckCircle2, Clock, Play, Terminal, XCircle } from "lucide-react";
+import { Badge } from "@/components/ui/badge";
+import { Button } from "@/components/ui/button";
+import { Card } from "@/components/ui/card";
+import { Textarea } from "@/components/ui/textarea";
+import { cn } from "@/lib/utils";
+import { useApp } from "@/contexts/AppContext";
+import { fetchDeployment, saveDeployment, type Language } from "@/lib/api";
+import defaultCode from "../../../../example/bot.ts" assert { type: "text" };
 
 export function CodeEditor() {
-  const { selectedGuild, refreshDeployments } = useApp()
+  const { selectedGuild, refreshDeployments } = useApp();
 
-  const [language, setLanguage] = useState<Language>("typescript")
-  const [code, setCode] = useState<string>("")
-  const [saveStatus, setSaveStatus] = useState<"idle" | "saving" | "saved" | "error">("idle")
-  const [saveError, setSaveError] = useState<string | null>(null)
-  const [isCodeLoading, setIsCodeLoading] = useState(false)
+  const [language, setLanguage] = useState<Language>("typescript");
+  const [code, setCode] = useState<string>("");
+  const [saveStatus, setSaveStatus] = useState<"idle" | "saving" | "saved" | "error">("idle");
+  const [saveError, setSaveError] = useState<string | null>(null);
+  const [isCodeLoading, setIsCodeLoading] = useState(false);
 
   useEffect(() => {
-    if (!selectedGuild) return
+    if (!selectedGuild) return;
 
-    setIsCodeLoading(true)
+    setIsCodeLoading(true);
     fetchDeployment(selectedGuild)
       .then((dep) => {
-        if (dep.language) setLanguage(dep.language as Language)
+        if (dep.language) setLanguage(dep.language as Language);
         if (dep.source) {
-          setCode(dep.source)
+          setCode(dep.source);
         } else {
-          setCode(defaultCode)
+          setCode(defaultCode);
         }
       })
       .catch(() => {
-        setCode(defaultCode)
+        setCode(defaultCode);
       })
-      .finally(() => setIsCodeLoading(false))
-  }, [selectedGuild])
+      .finally(() => setIsCodeLoading(false));
+  }, [selectedGuild]);
 
   const handleSave = async () => {
-    if (!selectedGuild) return
-    setSaveStatus("saving")
-    setSaveError(null)
+    if (!selectedGuild) return;
+    setSaveStatus("saving");
+    setSaveError(null);
     try {
-      await saveDeployment(selectedGuild, { code })
-      setSaveStatus("saved")
-      await refreshDeployments()
-      setTimeout(() => setSaveStatus("idle"), 2000)
+      await saveDeployment(selectedGuild, { code });
+      setSaveStatus("saved");
+      await refreshDeployments();
+      setTimeout(() => setSaveStatus("idle"), 2000);
     } catch (err: any) {
-      setSaveStatus("error")
-      setSaveError(err.message || "Failed to save")
+      setSaveStatus("error");
+      setSaveError(err.message || "Failed to save");
     }
-  }
+  };
 
   return (
     <div className="grid gap-6 h-[calc(100vh-14rem)] grid-rows-[auto_1fr]">
@@ -77,7 +77,10 @@ export function CodeEditor() {
               size="sm"
               onClick={handleSave}
               disabled={saveStatus === "saving" || isCodeLoading}
-              className={cn("transition-all", saveStatus === "saved" ? "bg-green-600 hover:bg-green-700" : "")}
+              className={cn(
+                "transition-all",
+                saveStatus === "saved" ? "bg-green-600 hover:bg-green-700" : "",
+              )}
             >
               {saveStatus === "saving" ? (
                 <Clock className="mr-2 h-3 w-3 animate-spin" />
@@ -104,8 +107,9 @@ export function CodeEditor() {
         </div>
       </Card>
       <div className="text-xs text-muted-foreground px-1">
-        <span className="font-semibold">Tip:</span> The <code>main</code> function is the entry point for your bot. It receives a context object.
+        <span className="font-semibold">Tip:</span> The <code>main</code> function is the entry
+        point for your bot. It receives a context object.
       </div>
     </div>
-  )
+  );
 }

@@ -1,4 +1,4 @@
-import { createContext, useContext, useEffect, useState, type ReactNode } from "react"
+import { createContext, useContext, useEffect, useState, type ReactNode } from "react";
 import {
   fetchDeployments,
   fetchGuilds,
@@ -8,117 +8,117 @@ import {
   type Deployment,
   type Guild,
   type Token,
-} from "@/lib/api"
+} from "@/lib/api";
 
 type LoadState<T> = {
-  data: T | null
-  loading: boolean
-  error: string | null
-}
+  data: T | null;
+  loading: boolean;
+  error: string | null;
+};
 
-const initialState = { data: null, loading: true, error: null }
+const initialState = { data: null, loading: true, error: null };
 
-export type AppView = "guild" | "user-settings"
+export type AppView = "guild" | "user-settings";
 
 interface AppContextType {
-  session: AuthUser | null
-  sessionError: string | null
-  guilds: LoadState<Guild[]>
-  deployments: LoadState<Deployment[]>
-  tokens: LoadState<Token[]>
-  selectedGuild: string
-  sidebarOpen: boolean
-  view: AppView
-  
-  setSession: (session: AuthUser | null) => void
-  setSelectedGuild: (id: string) => void
-  setSidebarOpen: (open: boolean) => void
-  toggleSidebar: () => void
-  setView: (view: AppView) => void
-  
-  refreshSession: () => Promise<void>
-  refreshGuilds: () => Promise<void>
-  refreshDeployments: () => Promise<void>
-  refreshTokens: () => Promise<void>
+  session: AuthUser | null;
+  sessionError: string | null;
+  guilds: LoadState<Guild[]>;
+  deployments: LoadState<Deployment[]>;
+  tokens: LoadState<Token[]>;
+  selectedGuild: string;
+  sidebarOpen: boolean;
+  view: AppView;
+
+  setSession: (session: AuthUser | null) => void;
+  setSelectedGuild: (id: string) => void;
+  setSidebarOpen: (open: boolean) => void;
+  toggleSidebar: () => void;
+  setView: (view: AppView) => void;
+
+  refreshSession: () => Promise<void>;
+  refreshGuilds: () => Promise<void>;
+  refreshDeployments: () => Promise<void>;
+  refreshTokens: () => Promise<void>;
 }
 
-const AppContext = createContext<AppContextType | undefined>(undefined)
+const AppContext = createContext<AppContextType | undefined>(undefined);
 
 export function AppProvider({ children }: { children: ReactNode }) {
-  const [session, setSession] = useState<AuthUser | null>(null)
-  const [sessionError, setSessionError] = useState<string | null>(null)
+  const [session, setSession] = useState<AuthUser | null>(null);
+  const [sessionError, setSessionError] = useState<string | null>(null);
 
-  const [guilds, setGuilds] = useState<LoadState<Guild[]>>({ ...initialState })
-  const [deployments, setDeployments] = useState<LoadState<Deployment[]>>({ ...initialState })
-  const [tokens, setTokens] = useState<LoadState<Token[]>>({ ...initialState })
+  const [guilds, setGuilds] = useState<LoadState<Guild[]>>({ ...initialState });
+  const [deployments, setDeployments] = useState<LoadState<Deployment[]>>({ ...initialState });
+  const [tokens, setTokens] = useState<LoadState<Token[]>>({ ...initialState });
 
-  const [selectedGuild, setSelectedGuild] = useState<string>("")
-  const [sidebarOpen, setSidebarOpen] = useState(false)
-  const [view, setView] = useState<AppView>("guild")
+  const [selectedGuild, setSelectedGuild] = useState<string>("");
+  const [sidebarOpen, setSidebarOpen] = useState(false);
+  const [view, setView] = useState<AppView>("guild");
 
   const refreshSession = async () => {
     try {
-      const res = await fetchSession()
-      setSession(res.user)
-      setSessionError(null)
+      const res = await fetchSession();
+      setSession(res.user);
+      setSessionError(null);
     } catch (err: any) {
       if (err.status === 401) {
-        setSession(null)
+        setSession(null);
       } else {
-        setSessionError(err.message || "Failed to load session")
+        setSessionError(err.message || "Failed to load session");
       }
     }
-  }
+  };
 
   const refreshGuilds = async () => {
-    setGuilds((prev) => ({ ...prev, loading: true }))
+    setGuilds((prev) => ({ ...prev, loading: true }));
     try {
-      const res = await fetchGuilds()
-      setGuilds({ data: res, loading: false, error: null })
+      const res = await fetchGuilds();
+      setGuilds({ data: res, loading: false, error: null });
     } catch (err: any) {
-      setGuilds({ data: null, loading: false, error: err.message })
+      setGuilds({ data: null, loading: false, error: err.message });
     }
-  }
+  };
 
   const refreshDeployments = async () => {
-    setDeployments((prev) => ({ ...prev, loading: true }))
+    setDeployments((prev) => ({ ...prev, loading: true }));
     try {
-      const res = await fetchDeployments()
-      setDeployments({ data: res, loading: false, error: null })
-      
+      const res = await fetchDeployments();
+      setDeployments({ data: res, loading: false, error: null });
+
       if (!selectedGuild && res.length > 0) {
-        setSelectedGuild(res[0].guild_id)
+        setSelectedGuild(res[0].guild_id);
       }
     } catch (err: any) {
-      setDeployments({ data: null, loading: false, error: err.message })
+      setDeployments({ data: null, loading: false, error: err.message });
     }
-  }
+  };
 
   const refreshTokens = async () => {
-    setTokens((prev) => ({ ...prev, loading: true }))
+    setTokens((prev) => ({ ...prev, loading: true }));
     try {
-      const res = await fetchTokens()
-      setTokens({ data: res, loading: false, error: null })
+      const res = await fetchTokens();
+      setTokens({ data: res, loading: false, error: null });
     } catch (err: any) {
-      setTokens({ data: null, loading: false, error: err.message })
+      setTokens({ data: null, loading: false, error: err.message });
     }
-  }
+  };
 
   useEffect(() => {
-    refreshSession()
-  }, [])
+    refreshSession();
+  }, []);
 
   useEffect(() => {
-    if (!session) return
+    if (!session) return;
 
-    setGuilds({ ...initialState })
-    setDeployments({ ...initialState })
-    setTokens({ ...initialState })
+    setGuilds({ ...initialState });
+    setDeployments({ ...initialState });
+    setTokens({ ...initialState });
 
-    refreshGuilds()
-    refreshDeployments()
-    refreshTokens()
-  }, [session])
+    refreshGuilds();
+    refreshDeployments();
+    refreshTokens();
+  }, [session]);
 
   return (
     <AppContext.Provider
@@ -144,13 +144,13 @@ export function AppProvider({ children }: { children: ReactNode }) {
     >
       {children}
     </AppContext.Provider>
-  )
+  );
 }
 
 export function useApp() {
-  const context = useContext(AppContext)
+  const context = useContext(AppContext);
   if (context === undefined) {
-    throw new Error("useApp must be used within an AppProvider")
+    throw new Error("useApp must be used within an AppProvider");
   }
-  return context
+  return context;
 }
