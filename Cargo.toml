@@ -6,7 +6,7 @@ resolver = "2"
 clap = "4.5.20"
 color-eyre = "0.6.5"
 openssl = { version = "0.10.75", features = ["vendored"] }
-reqwest = "0.12.25"
+reqwest = { version = "0.12.25", features = ["json"] }
 serde = "1"
 serde_json = "1"
 tokio = "1"
@@ -18,6 +18,7 @@ edition = "2024"
 
 [dependencies]
 axum = "0.8.7"
+cookie = "0.18"
 base64 = { version = "0.22", default-features = false, features = ["alloc"] }
 chrono = { version = "0.4", features = ["serde"] }
 color-eyre = "0.6.5"
@@ -28,15 +29,19 @@ dotenvy = "0.15"
 eyre = "0.6.12"
 fred = "10.1.0"
 futures-util = "0.3"
+hmac = "0.12"
+hex = "0.4"
 openssl = { version = "0.10.75", features = ["vendored"] }
 opentelemetry = "0.31.0"
 oxc = { version = "0.101.0", features = ["full", "oxc_regular_expression", "semantic", "transformer"] }
 oxc_codegen = "0.102.0"
 oxc_sourcemap = "6"
-reqwest = "0.12.25"
+rand = "0.8"
+reqwest = { version = "0.12.25", features = ["json"] }
 serde = { version = "1", features = ["derive"] }
 serde_json = "1"
 serenity = "0.12.4"
+sha2 = "0.10"
 sqlx = { version = "0.8.6", features = ["macros", "postgres", "runtime-tokio-rustls", "uuid", "chrono"] }
 thiserror = "2.0.17"
 tokio = { version = "1", features = ["full"] }
@@ -47,3 +52,5 @@ tracing = "0.1.43"
 tracing-subscriber = { version = "0.3.22", features = ["chrono", "env-filter", "serde", "time"] }
 utoipa = { version = "5.4.0", features = ["uuid", "url", "axum_extras", "debug", "auto_into_responses", "chrono", "config"] }
 utoipa-scalar = { version = "0.3.0", features = ["axum"] }
+urlencoding = "2.1"
+time = "0.3"

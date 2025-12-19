@@ -1,14 +1,17 @@
+mod auth;
 mod deployments;
 mod discord_handler;
 mod handlers;
 mod ops;
 mod runtime;
 mod state;
+mod tokens;
 mod transpile;
 mod v8_init;
 
 use std::{future::IntoFuture, net::SocketAddr, path::Path, sync::Arc};
 
+use auth::{AuthConfig, AuthService};
 use color_eyre::eyre::Result;
 use deployments::DeploymentService;
 use discord_handler::DiscordHandler;
@@ -19,6 +22,7 @@ use runtime::BotRuntime;
 use serenity::all::{Client, GatewayIntents};
 use sqlx::postgres::PgPoolOptions;
 use state::AppState;
+use tokens::TokenService;
 use tokio::net::TcpListener;
 use tracing::error;
 
@@ -34,6 +38,22 @@ async fn main() -> Result<()> {
         .unwrap_or_else(|_| "postgres://user:pass@localhost:5433/oakmoss".to_string());
     let valkey_url =
         std::env::var("VALKEY_URL").unwrap_or_else(|_| "redis://127.0.0.1:5434/0".to_string());
+    let discord_client_id =
+        std::env::var("DISCORD_CLIENT_ID").map_err(|_| eyre!("DISCORD_CLIENT_ID not set"))?;
+    let discord_client_secret = std::env::var("DISCORD_CLIENT_SECRET")
+        .map_err(|_| eyre!("DISCORD_CLIENT_SECRET not set"))?;
+    let discord_redirect_uri = std::env::var("DISCORD_REDIRECT_URI")
+        .unwrap_or_else(|_| "http://localhost:3000/auth/callback".to_string());
+    let session_secret =
+        std::env::var("SESSION_SECRET").map_err(|_| eyre!("SESSION_SECRET not set"))?;
+    let session_ttl_secs = std::env::var("SESSION_TTL_SECS")
+        .ok()
+        .and_then(|raw| raw.parse::<u64>().ok())
+        .unwrap_or(60 * 60 * 24 * 30);
+    let cookie_secure = std::env::var("COOKIE_SECURE")
+        .ok()
+        .map(|v| v == "1" || v.eq_ignore_ascii_case("true"))
+        .unwrap_or_else(|| discord_redirect_uri.starts_with("https://"));
     let api_addr: SocketAddr = std::env::var("API_ADDR")
         .unwrap_or_else(|_| "0.0.0.0:3000".to_string())
         .parse()
@@ -46,6 +66,20 @@ async fn main() -> Result<()> {
     let valkey_task = valkey_client.init().await?;
     let deployment_service =
         DeploymentService::new(pool.clone(), valkey_client.clone(), valkey_task);
+    let token_service = TokenService::new(pool.clone());
+    let auth_task = valkey_client.clone().init().await?;
+    let auth_service = AuthService::new(
+        AuthConfig {
+            client_id: discord_client_id,
+            client_secret: discord_client_secret,
+            redirect_uri: discord_redirect_uri,
+            session_secret,
+            session_ttl_secs,
+            cookie_secure,
+        },
+        valkey_client.clone(),
+        auth_task,
+    )?;
 
     v8_init::init();
 
@@ -70,6 +104,7 @@ async fn main() -> Result<()> {
     }
 
     deployment_service.migrate().await?;
+    token_service.migrate().await?;
     let cached_deployments = deployment_service.list_deployments().await?;
     for deployment in cached_deployments {
         if let Err(err) = runtime.deploy_guild_script(deployment.clone()).await {
@@ -87,9 +122,15 @@ async fn main() -> Result<()> {
 
     let mut client = Client::builder(&token, intents).event_handler(handler).await?;
 
-    let api_state = AppState { runtime: runtime.clone(), deployments: deployment_service.clone() };
+    let api_state = AppState {
+        runtime: runtime.clone(),
+        deployments: deployment_service.clone(),
+        auth: auth_service.clone(),
+        tokens: token_service.clone(),
+        http: http.clone(),
+    };
 
-    let api_router = create_router(api_state);
+    let api_router = create_router().with_state(api_state);
     let listener = TcpListener::bind(api_addr).await?;
     let api_service = api_router.into_make_service();
     let api_task = tokio::spawn(axum::serve(listener, api_service).into_future());

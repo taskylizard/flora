@@ -1,7 +1,9 @@
-use axum::{Json, extract::State};
+use axum::{Json, extract::State, http::HeaderMap};
 use tracing::error;
 
 use crate::{
+    handlers::auth::{ensure_guild_admin, require_identity},
+    handlers::auth::{ensure_guild_admin, require_session},
     handlers::{error::ApiError, response::ApiJson},
     state::AppState,
 };
@@ -11,7 +13,7 @@ use super::DeploymentResponse;
 /// List every stored deployment.
 #[utoipa::path(
     get,
-    path = "/deployments",
+    path = "/",
     tag = "deployment",
     responses(
         (status = 200, description = "Deployments retrieved", body = [DeploymentResponse]),
@@ -20,13 +22,23 @@ use super::DeploymentResponse;
 )]
 pub async fn list_deployments_handler(
     State(state): State<AppState>,
+    headers: HeaderMap,
 ) -> Result<ApiJson<Vec<DeploymentResponse>>, ApiError> {
+    let identity = require_identity(&state, &headers).await?;
+    let session = require_session(&state.auth, &headers).await?;
+
     let deployments = state.deployments.list_deployments().await.map_err(|err| {
         error!(target: "oakmoss:api", ?err, "failed to list deployments");
         ApiError::internal(err)
     })?;
 
-    let response = deployments.into_iter().map(DeploymentResponse::from).collect();
+    let mut response = Vec::new();
+    for deployment in deployments {
+        if ensure_guild_admin(&state, &identity, &deployment.guild_id).await.is_ok() {
+        if ensure_guild_admin(&state.auth, &session, &deployment.guild_id).await.is_ok() {
+            response.push(DeploymentResponse::from(deployment));
+        }
+    }
 
     Ok(ApiJson(Json(response)))
 }

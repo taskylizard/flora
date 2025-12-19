@@ -1,6 +1,7 @@
 use axum::{
     Json,
     extract::{Path, State},
+    http::HeaderMap,
 };
 use serde::{Deserialize, Serialize};
 use tracing::error;
@@ -8,6 +9,8 @@ use utoipa::ToSchema;
 
 use crate::{
     deployments::{Deployment, ScriptLanguage},
+    handlers::auth::{ensure_guild_admin, require_identity},
+    handlers::auth::{ensure_guild_admin, require_session},
     handlers::{error::ApiError, response::ApiJson},
     state::AppState,
 };
@@ -28,6 +31,8 @@ pub struct DeploymentResponse {
     pub language: String,
     pub created_at: String,
     pub updated_at: String,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub source: Option<String>,
 }
 
 impl From<Deployment> for DeploymentResponse {
@@ -37,14 +42,22 @@ impl From<Deployment> for DeploymentResponse {
             language: value.language.as_str().to_string(),
             created_at: value.created_at.to_rfc3339(),
             updated_at: value.updated_at.to_rfc3339(),
+            source: None,
         }
+    }
+}
+
+impl DeploymentResponse {
+    pub fn with_source(mut self, source: String) -> Self {
+        self.source = Some(source);
+        self
     }
 }
 
 /// Create or update a deployment for a guild.
 #[utoipa::path(
     post,
-    path = "/deployments/{guild_id}",
+    path = "/{guild_id}",
     request_body = DeploymentRequest,
     params(
         ("guild_id" = String, Path, description = "Discord guild id")
@@ -58,8 +71,14 @@ impl From<Deployment> for DeploymentResponse {
 pub async fn upsert_deployment_handler(
     Path(guild_id): Path<String>,
     State(state): State<AppState>,
+    headers: HeaderMap,
     Json(request): Json<DeploymentRequest>,
 ) -> Result<ApiJson<DeploymentResponse>, ApiError> {
+    let identity = require_identity(&state, &headers).await?;
+    ensure_guild_admin(&state, &identity, &guild_id).await?;
+    let session = require_session(&state.auth, &headers).await?;
+    ensure_guild_admin(&state.auth, &session, &guild_id).await?;
+
     let language = ScriptLanguage::from_option(request.language);
     let deployment = state
         .deployments

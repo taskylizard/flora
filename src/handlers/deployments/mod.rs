@@ -25,8 +25,7 @@ pub use upsert::{DeploymentRequest, DeploymentResponse, upsert_deployment_handle
 pub struct DeploymentApi;
 
 pub fn router() -> Router<AppState> {
-    Router::new().route("/deployments", get(list_deployments_handler)).route(
-        "/deployments/{guild_id}",
-        get(get_deployment_handler).post(upsert_deployment_handler),
-    )
+    Router::new()
+        .route("/", get(list_deployments_handler))
+        .route("/{guild_id}", get(get_deployment_handler).post(upsert_deployment_handler))
 }

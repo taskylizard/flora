@@ -708,6 +708,16 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "147be55d677052dabc6b22252d5dd0fd4c29c8c27aa4f2fbef0f94aa003b406f"
 
 [[package]]
+name = "cookie"
+version = "0.18.1"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "4ddef33a339a91ea89fb53151bd0a4689cfce27055c291dfa69945475d22c747"
+dependencies = [
+ "time",
+ "version_check",
+]
+
+[[package]]
 name = "cookie-factory"
 version = "0.3.2"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -1083,6 +1093,27 @@ dependencies = [
  "smallvec",
  "strck",
  "syn 2.0.111",
+]
+
+[[package]]
+name = "dirs"
+version = "5.0.1"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "44c45a9d03d6676652bcb5e724c7e988de1acad23a711b5217ab9cbecbec2225"
+dependencies = [
+ "dirs-sys",
+]
+
+[[package]]
+name = "dirs-sys"
+version = "0.4.1"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "520f05a5cbd335fae5a99ff7a6ab8627577660ee5cfd6a94a6a929b52ff0321c"
+dependencies = [
+ "libc",
+ "option-ext",
+ "redox_users",
+ "windows-sys 0.48.0",
 ]
 
 [[package]]
@@ -2437,6 +2468,7 @@ dependencies = [
  "base64 0.22.1",
  "chrono",
  "color-eyre",
+ "cookie",
  "deno_ast",
  "deno_core",
  "deno_error",
@@ -2444,23 +2476,29 @@ dependencies = [
  "eyre",
  "fred",
  "futures-util",
+ "hex",
+ "hmac",
  "openssl",
  "opentelemetry",
  "oxc",
  "oxc_codegen 0.102.0",
  "oxc_sourcemap",
+ "rand 0.8.5",
  "reqwest 0.12.25",
  "serde",
  "serde_json",
  "serenity",
+ "sha2",
  "sqlx",
  "thiserror 2.0.17",
+ "time",
  "tokio",
  "tokio-postgres",
  "tokio-tungstenite 0.28.0",
  "tower",
  "tracing",
  "tracing-subscriber",
+ "urlencoding",
  "utoipa",
  "utoipa-scalar",
 ]
@@ -2471,6 +2509,7 @@ version = "0.1.0"
 dependencies = [
  "clap",
  "color-eyre",
+ "dirs",
  "openssl",
  "reqwest 0.12.25",
  "serde",
@@ -2575,6 +2614,12 @@ dependencies = [
  "thiserror 2.0.17",
  "tracing",
 ]
+
+[[package]]
+name = "option-ext"
+version = "0.2.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "04744f49eae99ab78e0d5c0b603ab218f515ea8cfe5a456d7629ad883a3b6e7d"
 
 [[package]]
 name = "outref"
@@ -3669,6 +3714,17 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "ed2bf2547551a7053d6fdfafda3f938979645c44812fbfcda098faae3f1a362d"
 dependencies = [
  "bitflags 2.10.0",
+]
+
+[[package]]
+name = "redox_users"
+version = "0.4.6"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "ba009ff324d1fc1b900bd1fdb31564febe58a8ccc8a6fdbb93b543d33b13ca43"
+dependencies = [
+ "getrandom 0.2.16",
+ "libredox",
+ "thiserror 1.0.69",
 ]
 
 [[package]]
