@@ -43,7 +43,12 @@ export function GuildList() {
               : "hover:bg-sidebar-accent hover:text-sidebar-accent-foreground text-muted-foreground"
           )}
         >
-          <Avatar name={guild.name} className={cn("h-6 w-6 text-[10px]", selectedGuild === guild.id ? "bg-sidebar-primary-foreground/20 text-sidebar-primary-foreground" : "bg-muted")} />
+          <Avatar 
+            name={guild.name} 
+            guildId={guild.id}
+            iconHash={guild.icon}
+            className={cn("h-6 w-6 text-[10px]", selectedGuild === guild.id ? "bg-sidebar-primary-foreground/20 text-sidebar-primary-foreground" : "bg-muted")} 
+          />
           <span className="truncate">{guild.name}</span>
           {selectedGuild === guild.id && <ChevronRight className="ml-auto h-4 w-4 opacity-50" />}
         </button>

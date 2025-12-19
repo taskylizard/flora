@@ -1,4 +1,5 @@
 import { cn } from "@/lib/utils"
+import { useState } from "react"
 
 function getInitials(name?: string | null) {
   if (!name) return "?"
@@ -34,11 +35,12 @@ export function Avatar({
   guildId?: string
   iconHash?: string | null
 }) {
+  const [error, setError] = useState(false)
   const imageUrl = src || 
     (userId && avatarHash ? getDiscordAvatarUrl(userId, avatarHash) : null) ||
     (guildId && iconHash ? getDiscordGuildIconUrl(guildId, iconHash) : null)
 
-  if (imageUrl) {
+  if (imageUrl && !error) {
     return (
       <div
         className={cn(
@@ -50,16 +52,8 @@ export function Avatar({
           src={imageUrl} 
           alt={name || "Avatar"} 
           className="h-full w-full object-cover"
-          onError={(e) => {
-            e.currentTarget.style.display = 'none'
-            if (e.currentTarget.nextSibling) {
-              (e.currentTarget.nextSibling as HTMLElement).style.display = 'flex'
-            }
-          }}
+          onError={() => setError(true)}
         />
-        <div className="hidden h-full w-full items-center justify-center text-sm font-semibold">
-          {getInitials(name)}
-        </div>
       </div>
     )
   }

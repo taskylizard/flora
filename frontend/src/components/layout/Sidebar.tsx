@@ -26,9 +26,7 @@ export function Sidebar() {
     } >
     <div className="flex h-16 items-center gap-2 border-b px-6 cursor-pointer" onClick = {() => setView('guild')
 }>
-  <div className="flex h-8 w-8 items-center justify-center rounded-lg bg-primary text-primary-foreground font-bold" >
-    OM
-    </div>
+  <img src="/logo.png" alt="Oakmoss logo" className="h-8 w-8 rounded-lg object-cover" />
     < div className = "font-semibold tracking-tight" > flora </div>
       </div>
 
@@ -42,7 +40,12 @@ export function Sidebar() {
             < div className = "border-t p-4" >
               <DropdownMenu>
               <DropdownMenuTrigger className="flex w-full items-center gap-3 rounded-lg border bg-sidebar-accent/50 p-3 shadow-sm hover:bg-sidebar-accent transition-colors outline-none text-left cursor-pointer" >
-                <Avatar name={ session.global_name || session.username } className = "h-8 w-8" />
+                <Avatar 
+                  name={ session.global_name || session.username } 
+                  userId={session.id}
+                  avatarHash={session.avatar}
+                  className="h-8 w-8" 
+                />
                   <div className="flex-1 min-w-0" >
                     <p className="truncate text-sm font-medium" > { session.global_name || session.username } </p>
                       < p className = "truncate text-xs text-muted-foreground" > Manage Account </p>
